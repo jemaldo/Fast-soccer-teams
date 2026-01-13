@@ -18,7 +18,9 @@ import {
   Server,
   Share2,
   FileUp,
-  FileDown
+  FileDown,
+  AlertCircle,
+  Smartphone
 } from 'lucide-react';
 
 interface Props {
@@ -80,25 +82,28 @@ const UserSettings: React.FC<Props> = ({
   const handleToggleGoogleDrive = async () => {
     const aistudio = (window as any).aistudio;
 
-    // Forzar apertura del selector de cuenta siempre que se pulse el botón
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
         await aistudio.openSelectKey();
-        
-        // Proceder inmediatamente asumiendo éxito según lineamientos
         setSchoolSettings(prev => ({ 
           ...prev, 
           googleDriveLinked: true,
           lastCloudSync: new Date().toISOString() 
         }));
-        
-        alert("¡Proceso de vinculación iniciado! Por favor selecciona tu cuenta en el diálogo de Google. Una vez seleccionada, podrás usar el botón 'SUBIR CAMBIOS' en la barra superior.");
+        alert("¡Proceso de vinculación iniciado! Selecciona tu cuenta en el diálogo de Google.");
       } catch (err) {
         console.error("Error al abrir selector:", err);
-        alert("Hubo un error al intentar abrir el selector de cuentas de Google.");
       }
     } else {
-      alert("La función de vinculación no está disponible en este entorno.");
+      // Mensaje mucho más explicativo para el usuario
+      alert(
+        "ESTADO DEL ENTORNO:\n\n" +
+        "La sincronización directa con Google Cloud (Nube) requiere estar en un navegador de PC o dentro de Google AI Studio.\n\n" +
+        "SOLUCIÓN PARA CELULAR:\n" +
+        "1. Usa el botón 'Exportar PC' en tu computadora.\n" +
+        "2. Pásate el archivo por WhatsApp o Correo.\n" +
+        "3. Usa el botón 'Importar PC' en este celular para cargar tus datos."
+      );
     }
   };
 
@@ -119,7 +124,7 @@ const UserSettings: React.FC<Props> = ({
       reader.onload = (event) => {
         try {
           const json = JSON.parse(event.target?.result as string);
-          if (confirm("¡ATENCIÓN! Se reemplazarán todos los datos actuales con los del archivo. ¿Continuar?")) {
+          if (confirm("¿Reemplazar todos los datos del celular con los del archivo?")) {
             onImportData(json);
           }
         } catch (error) {
@@ -139,10 +144,10 @@ const UserSettings: React.FC<Props> = ({
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="space-y-2 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-2 text-blue-400 font-black text-xs uppercase tracking-widest mb-2">
-              <Shield className="w-4 h-4" /> Configuración de Seguridad
+              <Shield className="w-4 h-4" /> Centro de Control y Datos
             </div>
-            <h2 className="text-3xl font-black tracking-tighter">Gestión de Academia</h2>
-            <p className="text-slate-400 text-sm max-w-md">Administra los datos de la institución y la sincronización en la nube.</p>
+            <h2 className="text-3xl font-black tracking-tighter">Configuración General</h2>
+            <p className="text-slate-400 text-sm max-w-md">Respalda tu información localmente o en la nube.</p>
           </div>
           <div className="flex gap-4">
              <button onClick={handleExportData} className="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-2xl font-bold text-sm transition flex items-center gap-2">
@@ -160,7 +165,7 @@ const UserSettings: React.FC<Props> = ({
           {/* IDENTIDAD VISUAL */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-slate-800">
-              <Building2 className="w-5 h-5 text-blue-600" /> Perfil de Academia
+              <Building2 className="w-5 h-5 text-blue-600" /> Academia
             </h3>
             
             <div className="flex flex-col items-center gap-4">
@@ -171,7 +176,7 @@ const UserSettings: React.FC<Props> = ({
                   ) : (
                     <>
                       <Camera className="w-10 h-10 mb-2" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Logo Institucional</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Logo</span>
                     </>
                   )}
                   <button onClick={() => logoInputRef.current?.click()} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
@@ -184,7 +189,7 @@ const UserSettings: React.FC<Props> = ({
 
             <div className="mt-8 space-y-4">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Nombre</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Nombre Academia</label>
                 <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
               <div>
@@ -201,25 +206,16 @@ const UserSettings: React.FC<Props> = ({
               <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
                 <Share2 className="w-5 h-5 text-blue-600" /> Sincronización Nube
               </h3>
-              {schoolSettings.googleDriveLinked && (
-                <button 
-                  onClick={verifyAccountStatus}
-                  disabled={isVerifying}
-                  className="p-1.5 text-slate-400 hover:text-blue-600 transition hover:bg-blue-50 rounded-lg"
-                >
-                  <RefreshCcw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
-                </button>
-              )}
             </div>
             
             <p className="text-[11px] text-slate-500 mb-6 relative z-10 leading-relaxed font-medium">
-              Vincula tu cuenta para que los datos se guarden en tu Google Drive y puedas verlos en otros equipos.
+              Usa esta función en tu PC para respaldar datos automáticamente. En celulares, recomendamos usar 'Exportar/Importar'.
             </p>
             
             <div className="space-y-4 relative z-10">
               <button 
                 onClick={handleToggleGoogleDrive}
-                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${schoolSettings.googleDriveLinked ? 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100' : 'bg-slate-900 text-white hover:bg-black'}`}
+                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${schoolSettings.googleDriveLinked ? 'bg-amber-50 text-amber-600 border border-amber-100' : 'bg-slate-900 text-white hover:bg-black'}`}
               >
                 {schoolSettings.googleDriveLinked ? (
                   <><RotateCcw className="w-4 h-4" /> CAMBIAR CUENTA GMAIL</>
@@ -245,20 +241,13 @@ const UserSettings: React.FC<Props> = ({
               )}
             </div>
 
-            {schoolSettings.googleDriveLinked && (
-              <div className="mt-6 space-y-3 pt-6 border-t border-slate-100">
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-black text-slate-400 uppercase tracking-widest">Estado</span>
-                  <span className="flex items-center gap-1.5 text-emerald-600 font-bold"><Fingerprint className="w-3 h-3" /> VINCULADO</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-black text-slate-400 uppercase tracking-widest">Sincronización</span>
-                  <span className="text-slate-700 font-black">
-                    {schoolSettings.lastCloudSync ? new Date(schoolSettings.lastCloudSync).toLocaleTimeString() : 'Pendiente'}
-                  </span>
-                </div>
-              </div>
-            )}
+            {/* Aviso especial para Móvil */}
+            <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-3">
+              <Smartphone className="w-5 h-5 text-slate-400 shrink-0" />
+              <p className="text-[9px] text-slate-400 italic">
+                Nota: La vinculación automática de Google Cloud no es compatible con algunos navegadores móviles estándar.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -268,9 +257,9 @@ const UserSettings: React.FC<Props> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                 <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-600" /> Operadores del Sistema
+                  <Users className="w-6 h-6 text-blue-600" /> Operadores
                 </h3>
-                <p className="text-xs text-slate-500">Administra los usuarios autorizados para acceder.</p>
+                <p className="text-xs text-slate-500">Administra los usuarios autorizados.</p>
               </div>
               <button 
                 onClick={handleAddUser} 
@@ -304,15 +293,15 @@ const UserSettings: React.FC<Props> = ({
 
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 mb-8">
-              <Server className="w-6 h-6 text-blue-600" /> Datos Institucionales
+              <Server className="w-6 h-6 text-blue-600" /> Sede y Contacto
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Dirección de Sede</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Dirección Principal</label>
                 <input type="text" value={schoolSettings.address} onChange={(e) => handleUpdateSetting('address', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Línea de Atención</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">WhatsApp / Teléfono</label>
                 <input type="text" value={schoolSettings.phone} onChange={(e) => handleUpdateSetting('phone', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
             </div>
