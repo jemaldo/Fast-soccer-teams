@@ -97,6 +97,7 @@ export interface SchoolSettings {
   logo?: string;
   // Cloud Sync Settings
   googleDriveLinked?: boolean;
+  linkedEmail?: string;
   lastCloudSync?: string;
   googleAccessToken?: string;
 }

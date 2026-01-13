@@ -1,16 +1,17 @@
-
 import React, { useState } from 'react';
-import { MatchSquad, Student, SquadPlayer } from '../types';
+import { MatchSquad, Student, SquadPlayer, SchoolSettings } from '../types';
 import { CATEGORIES, POSITIONS } from '../constants';
 import { Trophy, Calendar, Users, ClipboardCheck, Plus, Trash2 } from 'lucide-react';
 
+// Added schoolSettings to Props interface to match usage in App.tsx
 interface Props {
   squads: MatchSquad[];
   setSquads: React.Dispatch<React.SetStateAction<MatchSquad[]>>;
   students: Student[];
+  schoolSettings: SchoolSettings;
 }
 
-const MatchManager: React.FC<Props> = ({ squads, setSquads, students }) => {
+const MatchManager: React.FC<Props> = ({ squads, setSquads, students, schoolSettings }) => {
   const [showSquadForm, setShowSquadForm] = useState(false);
   const [currentSquad, setCurrentSquad] = useState<Partial<MatchSquad>>({
     date: new Date().toISOString().split('T')[0],

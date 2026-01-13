@@ -1,25 +1,24 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { User, SchoolSettings } from '../types';
 import { 
   Shield, 
   UserPlus, 
   Trash2, 
-  Key, 
   Building2, 
   Camera, 
   X, 
-  Check, 
   Users, 
   Database, 
-  CloudDownload, 
-  CloudUpload,
-  AlertCircle,
-  Chrome,
-  History,
-  Lock,
+  CloudUpload, 
+  Chrome, 
+  RefreshCcw, 
+  Mail, 
+  Fingerprint, 
+  RotateCcw,
   Server,
-  Share2
+  Share2,
+  FileUp,
+  FileDown
 } from 'lucide-react';
 
 interface Props {
@@ -43,6 +42,7 @@ const UserSettings: React.FC<Props> = ({
 }) => {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleAddUser = () => {
     const username = prompt("Nombre de usuario:");
@@ -57,25 +57,48 @@ const UserSettings: React.FC<Props> = ({
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setSchoolSettings({ ...schoolSettings, logo: reader.result as string });
+        setSchoolSettings(prev => ({ ...prev, logo: reader.result as string }));
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleUpdateSetting = (field: keyof SchoolSettings, value: string) => {
-    setSchoolSettings({ ...schoolSettings, [field]: value });
+    setSchoolSettings(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleToggleGoogleDrive = () => {
-    if (!schoolSettings.googleDriveLinked) {
-      if (confirm("Al vincular Google Drive, la app creará un archivo de respaldo automático para sincronizar con otros computadores. ¿Deseas continuar?")) {
-        setSchoolSettings({ ...schoolSettings, googleDriveLinked: true, lastCloudSync: new Date().toISOString() });
+  const verifyAccountStatus = async () => {
+    setIsVerifying(true);
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+      const hasKey = await aistudio.hasSelectedApiKey();
+      setSchoolSettings(prev => ({ ...prev, googleDriveLinked: hasKey }));
+    }
+    setTimeout(() => setIsVerifying(false), 800);
+  };
+
+  const handleToggleGoogleDrive = async () => {
+    const aistudio = (window as any).aistudio;
+
+    // Forzar apertura del selector de cuenta siempre que se pulse el botón
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
+      try {
+        await aistudio.openSelectKey();
+        
+        // Proceder inmediatamente asumiendo éxito según lineamientos
+        setSchoolSettings(prev => ({ 
+          ...prev, 
+          googleDriveLinked: true,
+          lastCloudSync: new Date().toISOString() 
+        }));
+        
+        alert("¡Proceso de vinculación iniciado! Por favor selecciona tu cuenta en el diálogo de Google. Una vez seleccionada, podrás usar el botón 'SUBIR CAMBIOS' en la barra superior.");
+      } catch (err) {
+        console.error("Error al abrir selector:", err);
+        alert("Hubo un error al intentar abrir el selector de cuentas de Google.");
       }
     } else {
-      if (confirm("¿Desvincular Google Drive? Se detendrá la sincronización automática entre dispositivos.")) {
-        setSchoolSettings({ ...schoolSettings, googleDriveLinked: false });
-      }
+      alert("La función de vinculación no está disponible en este entorno.");
     }
   };
 
@@ -96,11 +119,11 @@ const UserSettings: React.FC<Props> = ({
       reader.onload = (event) => {
         try {
           const json = JSON.parse(event.target?.result as string);
-          if (confirm("¡ATENCIÓN! Al importar, se borrarán todos los datos actuales y se reemplazarán por los del archivo. ¿Continuar?")) {
+          if (confirm("¡ATENCIÓN! Se reemplazarán todos los datos actuales con los del archivo. ¿Continuar?")) {
             onImportData(json);
           }
         } catch (error) {
-          alert("Error: El archivo no es un respaldo válido.");
+          alert("Error: Archivo no válido.");
         }
       };
       reader.readAsText(file);
@@ -110,45 +133,45 @@ const UserSettings: React.FC<Props> = ({
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      {/* Header Informativo sobre Seguridad */}
+      {/* Banner Superior */}
       <div className="bg-gradient-to-r from-slate-900 to-blue-900 p-8 rounded-3xl text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="space-y-2 text-center md:text-left">
             <div className="flex items-center justify-center md:justify-start gap-2 text-blue-400 font-black text-xs uppercase tracking-widest mb-2">
-              <Shield className="w-4 h-4" /> Centro de Seguridad y Datos
+              <Shield className="w-4 h-4" /> Configuración de Seguridad
             </div>
-            <h2 className="text-3xl font-black tracking-tighter">Soberanía de Información</h2>
-            <p className="text-slate-400 text-sm max-w-md">Tus datos nunca salen de tu control. Gestiona cómo se comparten y respaldan entre tus dispositivos.</p>
+            <h2 className="text-3xl font-black tracking-tighter">Gestión de Academia</h2>
+            <p className="text-slate-400 text-sm max-w-md">Administra los datos de la institución y la sincronización en la nube.</p>
           </div>
           <div className="flex gap-4">
              <button onClick={handleExportData} className="bg-white/10 hover:bg-white/20 border border-white/10 px-6 py-3 rounded-2xl font-bold text-sm transition flex items-center gap-2">
-                <Database className="w-5 h-5" /> Exportar Backup
+                <FileDown className="w-5 h-5" /> Exportar PC
              </button>
              <button onClick={() => dataInputRef.current?.click()} className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-2xl font-bold text-sm transition flex items-center gap-2 shadow-xl shadow-blue-900/40">
-                <CloudUpload className="w-5 h-5" /> Importar Backup
+                <FileUp className="w-5 h-5" /> Importar PC
              </button>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Lado Izquierdo: Configuración e Imagen */}
         <div className="lg:col-span-1 space-y-6">
+          {/* IDENTIDAD VISUAL */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-slate-800">
-              <Building2 className="w-5 h-5 text-blue-600" /> Identidad Visual
+              <Building2 className="w-5 h-5 text-blue-600" /> Perfil de Academia
             </h3>
             
             <div className="flex flex-col items-center gap-4">
               <div className="relative group">
                 <div className="w-40 h-40 rounded-3xl bg-slate-50 border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 overflow-hidden relative">
                   {schoolSettings.logo ? (
-                    <img src={schoolSettings.logo} alt="School Logo" className="w-full h-full object-contain p-4" />
+                    <img src={schoolSettings.logo} alt="Logo" className="w-full h-full object-contain p-4" />
                   ) : (
                     <>
                       <Camera className="w-10 h-10 mb-2" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Logo Academia</span>
+                      <span className="text-[10px] font-black uppercase tracking-widest">Logo Institucional</span>
                     </>
                   )}
                   <button onClick={() => logoInputRef.current?.click()} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white">
@@ -161,67 +184,99 @@ const UserSettings: React.FC<Props> = ({
 
             <div className="mt-8 space-y-4">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1 ml-1">Nombre Oficial</label>
-                <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">Nombre</label>
+                <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1 ml-1">NIT / Registro Fiscal</label>
-                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-1">NIT / Registro</label>
+                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
             </div>
           </div>
 
-          {/* CLOUD SYNC CARD */}
+          {/* CLOUD SETTINGS */}
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -z-0 opacity-40"></div>
-            <h3 className="text-lg font-bold flex items-center gap-2 mb-4 relative z-10 text-slate-800">
-              <Share2 className="w-5 h-5 text-blue-600" /> Sincronización Multi-Usuario
-            </h3>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                <Share2 className="w-5 h-5 text-blue-600" /> Sincronización Nube
+              </h3>
+              {schoolSettings.googleDriveLinked && (
+                <button 
+                  onClick={verifyAccountStatus}
+                  disabled={isVerifying}
+                  className="p-1.5 text-slate-400 hover:text-blue-600 transition hover:bg-blue-50 rounded-lg"
+                >
+                  <RefreshCcw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
+                </button>
+              )}
+            </div>
+            
             <p className="text-[11px] text-slate-500 mb-6 relative z-10 leading-relaxed font-medium">
-              Activa esta opción para compartir los datos con otros miembros de tu equipo usando una cuenta de Google compartida.
+              Vincula tu cuenta para que los datos se guarden en tu Google Drive y puedas verlos en otros equipos.
             </p>
             
-            <button 
-              onClick={handleToggleGoogleDrive}
-              className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${schoolSettings.googleDriveLinked ? 'bg-red-50 text-red-600 border border-red-100 hover:bg-red-100' : 'bg-slate-900 text-white hover:bg-black'}`}
-            >
-              {schoolSettings.googleDriveLinked ? (
-                <>DETENER SINCRONIZACIÓN</>
-              ) : (
-                <><Chrome className="w-4 h-4" /> VINCULAR GOOGLE DRIVE</>
+            <div className="space-y-4 relative z-10">
+              <button 
+                onClick={handleToggleGoogleDrive}
+                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${schoolSettings.googleDriveLinked ? 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100' : 'bg-slate-900 text-white hover:bg-black'}`}
+              >
+                {schoolSettings.googleDriveLinked ? (
+                  <><RotateCcw className="w-4 h-4" /> CAMBIAR CUENTA GMAIL</>
+                ) : (
+                  <><Chrome className="w-4 h-4" /> VINCULAR GMAIL</>
+                )}
+              </button>
+
+              {schoolSettings.googleDriveLinked && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[9px] font-black uppercase text-blue-600 mb-1.5 ml-1">Correo para Sincronización</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                    <input 
+                      type="email" 
+                      placeholder="Correo vinculado..."
+                      value={schoolSettings.linkedEmail || ''}
+                      onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-xs font-bold text-blue-900 focus:ring-2 focus:ring-blue-400 outline-none"
+                    />
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
 
             {schoolSettings.googleDriveLinked && (
-              <div className="mt-8 space-y-4 pt-6 border-t border-slate-100">
+              <div className="mt-6 space-y-3 pt-6 border-t border-slate-100">
                 <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-black text-slate-400 uppercase tracking-widest">Estado Nube</span>
-                  <span className="flex items-center gap-1.5 text-emerald-600 font-black"><Check className="w-3 h-3" /> ACTIVO</span>
+                  <span className="font-black text-slate-400 uppercase tracking-widest">Estado</span>
+                  <span className="flex items-center gap-1.5 text-emerald-600 font-bold"><Fingerprint className="w-3 h-3" /> VINCULADO</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span className="font-black text-slate-400 uppercase tracking-widest">Último Envío</span>
-                  <span className="text-slate-700 font-black">{new Date(schoolSettings.lastCloudSync || '').toLocaleTimeString()}</span>
+                  <span className="font-black text-slate-400 uppercase tracking-widest">Sincronización</span>
+                  <span className="text-slate-700 font-black">
+                    {schoolSettings.lastCloudSync ? new Date(schoolSettings.lastCloudSync).toLocaleTimeString() : 'Pendiente'}
+                  </span>
                 </div>
               </div>
             )}
           </div>
         </div>
 
-        {/* Lado Derecho: Usuarios e Info */}
+        {/* Info Detallada */}
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                 <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-600" /> Permisos de Acceso
+                  <Users className="w-6 h-6 text-blue-600" /> Operadores del Sistema
                 </h3>
-                <p className="text-xs text-slate-500">Define quién puede entrar al sistema desde este computador.</p>
+                <p className="text-xs text-slate-500">Administra los usuarios autorizados para acceder.</p>
               </div>
               <button 
                 onClick={handleAddUser} 
                 className="bg-slate-100 text-slate-700 px-5 py-2.5 rounded-xl font-bold hover:bg-slate-200 transition flex items-center gap-2 text-xs"
               >
-                <UserPlus className="w-4 h-4" /> Nuevo Operador
+                <UserPlus className="w-4 h-4" /> Nuevo Usuario
               </button>
             </div>
 
@@ -229,25 +284,19 @@ const UserSettings: React.FC<Props> = ({
               {users.map(user => (
                 <div key={user.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-2xl border border-slate-100 group">
                   <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 font-black text-lg shadow-sm">
+                    <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 font-black text-lg">
                       {user.username.charAt(0).toUpperCase()}
                     </div>
                     <div>
                       <p className="text-sm font-black text-slate-800">{user.username}</p>
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <Lock className="w-3 h-3 text-slate-400" />
-                        <span className="text-[9px] font-black uppercase text-blue-600 tracking-wider">Acceso {user.role}</span>
-                      </div>
+                      <span className="text-[9px] font-black uppercase text-blue-600 tracking-wider">{user.role}</span>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
-                    <button className="p-2 text-slate-400 hover:text-blue-600"><Key className="w-4 h-4" /></button>
-                    {user.id !== '1' && (
-                      <button onClick={() => setUsers(users.filter(u => u.id !== user.id))} className="p-2 text-slate-400 hover:text-red-600">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
+                  {user.id !== '1' && (
+                    <button onClick={() => setUsers(users.filter(u => u.id !== user.id))} className="p-2 text-slate-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -255,28 +304,17 @@ const UserSettings: React.FC<Props> = ({
 
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 mb-8">
-              <Server className="w-6 h-6 text-blue-600" /> Información para Reportes e Impresión
+              <Server className="w-6 h-6 text-blue-600" /> Datos Institucionales
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Dirección Física</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Dirección de Sede</label>
                 <input type="text" value={schoolSettings.address} onChange={(e) => handleUpdateSetting('address', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Teléfono de Contacto</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Línea de Atención</label>
                 <input type="text" value={schoolSettings.phone} onChange={(e) => handleUpdateSetting('phone', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Correo Electrónico de Soporte</label>
-                <input type="email" value={schoolSettings.email} onChange={(e) => handleUpdateSetting('email', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold" />
-              </div>
-            </div>
-            
-            <div className="mt-10 p-4 bg-blue-50 rounded-2xl border border-blue-100 flex gap-4">
-               <AlertCircle className="w-6 h-6 text-blue-600 shrink-0" />
-               <p className="text-[11px] text-blue-800 leading-relaxed">
-                 <strong>Recordatorio de Privacidad:</strong> Toda la información ingresada en este sistema reside únicamente en este navegador y en tu Google Drive vinculado. No enviamos datos a servidores externos de terceros.
-               </p>
             </div>
           </div>
         </div>

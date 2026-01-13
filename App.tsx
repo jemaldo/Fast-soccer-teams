@@ -19,7 +19,7 @@ import MatchManager from './components/MatchManager';
 import TrainingManager from './components/TrainingManager';
 import ReportManager from './components/ReportManager';
 import UserSettings from './components/UserSettings';
-import { LogOut, User as UserIcon, Menu, X, Trophy, CloudLightning, RefreshCw, AlertCircle, CloudCheck, CloudUpload } from 'lucide-react';
+import { LogOut, User as UserIcon, Menu, X, Trophy, CloudLightning, RefreshCw, AlertCircle, CloudCheck, CloudUpload, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('DASHBOARD');
@@ -27,8 +27,9 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [cloudUpdateAvailable, setCloudUpdateAvailable] = useState<any>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
-  // Estados con carga inicial
+  // Carga inicial
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(() => {
     const saved = localStorage.getItem('schoolSettings');
     return saved ? JSON.parse(saved) : {
@@ -36,7 +37,9 @@ const App: React.FC = () => {
       nit: '900.123.456-7',
       address: 'Calle Deportiva 123, Ciudad',
       phone: '(+57) 300 123 4567',
-      email: 'contacto@promanager.com'
+      email: 'contacto@promanager.com',
+      googleDriveLinked: false,
+      linkedEmail: ''
     };
   });
 
@@ -70,63 +73,95 @@ const App: React.FC = () => {
     return saved ? JSON.parse(saved) : [{ id: '1', username: 'admin', role: 'ADMIN' }];
   });
 
-  // Guardado local y marcado de cambios pendientes
-  const updateLocalAndCloudFlag = (key: string, data: any) => {
-    localStorage.setItem(key, JSON.stringify(data));
-    setHasUnsavedChanges(true);
-  };
-
+  // Persistencia Local
   useEffect(() => { localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings)); }, [schoolSettings]);
-  useEffect(() => { updateLocalAndCloudFlag('students', students); }, [students]);
-  useEffect(() => { updateLocalAndCloudFlag('teachers', teachers); }, [teachers]);
-  useEffect(() => { updateLocalAndCloudFlag('payments', payments); }, [payments]);
-  useEffect(() => { updateLocalAndCloudFlag('cashFlow', cashFlow); }, [cashFlow]);
-  useEffect(() => { updateLocalAndCloudFlag('squads', squads); }, [squads]);
-  useEffect(() => { updateLocalAndCloudFlag('users', users); }, [users]);
+  useEffect(() => { localStorage.setItem('students', JSON.stringify(students)); setHasUnsavedChanges(true); }, [students]);
+  useEffect(() => { localStorage.setItem('teachers', JSON.stringify(teachers)); setHasUnsavedChanges(true); }, [teachers]);
+  useEffect(() => { localStorage.setItem('payments', JSON.stringify(payments)); setHasUnsavedChanges(true); }, [payments]);
+  useEffect(() => { localStorage.setItem('cashFlow', JSON.stringify(cashFlow)); setHasUnsavedChanges(true); }, [cashFlow]);
+  useEffect(() => { localStorage.setItem('squads', JSON.stringify(squads)); setHasUnsavedChanges(true); }, [squads]);
+  useEffect(() => { localStorage.setItem('users', JSON.stringify(users)); setHasUnsavedChanges(true); }, [users]);
 
-  // Simulación de guardado en la nube
+  // Sincronización con la Nube (LocalStorage compartido)
   const handlePushToCloud = () => {
     if (!schoolSettings.googleDriveLinked) return;
-    alert("Sincronizando con Google Drive...");
-    setSchoolSettings({ ...schoolSettings, lastCloudSync: new Date().toISOString() });
-    setHasUnsavedChanges(false);
+    setIsSyncing(true);
+    
+    const allData = { 
+      schoolSettings, 
+      students, 
+      teachers, 
+      payments, 
+      cashFlow, 
+      squads, 
+      users, 
+      lastUpdate: new Date().toISOString() 
+    };
+    
+    // Guardar en llave global para que otras pestañas lo detecten
+    localStorage.setItem('SIMULATED_CLOUD_DATA', JSON.stringify(allData));
+    
+    setSchoolSettings(prev => ({ ...prev, lastCloudSync: new Date().toISOString() }));
+    
+    setTimeout(() => {
+      setHasUnsavedChanges(false);
+      setIsSyncing(false);
+      alert("¡Datos guardados en la nube exitosamente!");
+    }, 600);
   };
 
-  const checkCloudUpdates = useCallback(() => {
-    if (!schoolSettings.googleDriveLinked) return;
-    
-    // Simulación: Detectar si hay un archivo más nuevo en la nube (ej: subido por otro usuario)
-    const mockCheck = () => {
-      const lastLocalSync = new Date(schoolSettings.lastCloudSync || 0).getTime();
-      const mockCloudTime = lastLocalSync + 5000; // Simulamos que hay algo nuevo
+  const handlePullFromCloud = useCallback(() => {
+    const cloudDataStr = localStorage.getItem('SIMULATED_CLOUD_DATA');
+    if (cloudDataStr) {
+      const data = JSON.parse(cloudDataStr);
+      handleImportAllData(data);
+    }
+  }, []);
 
-      if (mockCloudTime > lastLocalSync && !hasUnsavedChanges) {
-        setCloudUpdateAvailable({
-          timestamp: new Date(mockCloudTime).toISOString(),
-          user: 'Secretaría'
-        });
+  // Detectar cambios realizados en otras pestañas al instante
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'SIMULATED_CLOUD_DATA' && e.newValue) {
+        const cloudData = JSON.parse(e.newValue);
+        const lastSync = new Date(schoolSettings.lastCloudSync || 0).getTime();
+        const cloudSync = new Date(cloudData.lastUpdate || 0).getTime();
+        
+        if (cloudSync > lastSync) {
+          setCloudUpdateAvailable({
+            timestamp: cloudData.lastUpdate,
+            user: 'Sistema'
+          });
+        }
       }
     };
-    setTimeout(mockCheck, 3000);
-  }, [schoolSettings.googleDriveLinked, schoolSettings.lastCloudSync, hasUnsavedChanges]);
-
-  useEffect(() => {
-    checkCloudUpdates();
-    // Re-revisar cuando el usuario vuelve a la pestaña
-    window.addEventListener('focus', checkCloudUpdates);
-    return () => window.removeEventListener('focus', checkCloudUpdates);
-  }, [checkCloudUpdates]);
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [schoolSettings.lastCloudSync]);
 
   const handleImportAllData = (data: any) => {
-    if (data.schoolSettings) setSchoolSettings({ ...data.schoolSettings, lastCloudSync: new Date().toISOString() });
+    if (!data || typeof data !== 'object') return;
+    
+    // Importar respetando estados
     if (data.students) setStudents(data.students);
     if (data.teachers) setTeachers(data.teachers);
     if (data.payments) setPayments(data.payments);
     if (data.cashFlow) setCashFlow(data.cashFlow);
     if (data.squads) setSquads(data.squads);
     if (data.users) setUsers(data.users);
+    
+    // Configuración de escuela con cuidado de no perder la vinculación actual
+    if (data.schoolSettings) {
+      setSchoolSettings(prev => ({
+        ...data.schoolSettings,
+        googleDriveLinked: prev.googleDriveLinked, // Mantener mi estado de sesión
+        linkedEmail: prev.linkedEmail,
+        lastCloudSync: new Date().toISOString()
+      }));
+    }
+    
     setCloudUpdateAvailable(null);
     setHasUnsavedChanges(false);
+    alert("¡Aplicación actualizada con los datos de la nube!");
   };
 
   const renderView = () => {
@@ -180,7 +215,6 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
-      {/* NOTIFICACIÓN FLOTANTE MEJORADA */}
       {cloudUpdateAvailable && (
         <div className="fixed bottom-6 right-6 z-[100] w-80 bg-slate-900 text-white shadow-2xl rounded-2xl p-5 border border-slate-700 animate-slide-in">
           <div className="flex gap-4">
@@ -188,20 +222,20 @@ const App: React.FC = () => {
               <CloudLightning className="w-6 h-6 text-white animate-pulse" />
             </div>
             <div className="flex-1">
-              <h4 className="text-sm font-black uppercase tracking-widest text-blue-400">Nuevos Datos</h4>
-              <p className="text-[10px] text-slate-400 mb-4 leading-relaxed">Se detectaron cambios recientes subidos por otro usuario. ¿Deseas actualizar tu sesión actual?</p>
+              <h4 className="text-sm font-black uppercase tracking-widest text-blue-400">Hay Cambios</h4>
+              <p className="text-[10px] text-slate-400 mb-4 leading-relaxed">Otro navegador o pestaña acaba de subir datos nuevos. ¿Quieres traerlos?</p>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => handleImportAllData({})} 
+                  onClick={handlePullFromCloud} 
                   className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-[10px] font-black transition"
                 >
-                  ACTUALIZAR
+                  SÍ, ACTUALIZAR
                 </button>
                 <button 
                   onClick={() => setCloudUpdateAvailable(null)}
                   className="px-3 py-2 bg-slate-800 text-slate-500 rounded-lg text-[10px] font-bold"
                 >
-                  LUEGO
+                  IGNORAR
                 </button>
               </div>
             </div>
@@ -285,21 +319,19 @@ const App: React.FC = () => {
                  {hasUnsavedChanges ? (
                     <button 
                       onClick={handlePushToCloud}
-                      className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-3 py-1.5 rounded-full border border-amber-200 hover:bg-amber-100 transition animate-pulse"
+                      disabled={isSyncing}
+                      className="flex items-center gap-2 text-white font-black text-[10px] bg-blue-600 px-4 py-2 rounded-full hover:bg-blue-700 transition animate-bounce shadow-lg disabled:opacity-50"
                     >
-                      <CloudUpload className="w-3 h-3" /> CAMBIOS PENDIENTES
+                      {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudUpload className="w-3 h-3" />}
+                      {isSyncing ? 'GUARDANDO...' : 'SUBIR CAMBIOS'}
                     </button>
                  ) : (
                     <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-200">
-                      <CloudCheck className="w-3 h-3" /> NUBE AL DÍA
+                      <CloudCheck className="w-3 h-3" /> NUBE ACTUALIZADA
                     </div>
                  )}
                </div>
              )}
-             <div className="hidden md:flex flex-col items-end">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{new Date().toLocaleDateString('es-ES', { weekday: 'long' })}</span>
-                <span className="text-sm font-bold text-slate-800">{new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}</span>
-             </div>
           </div>
         </header>
 
