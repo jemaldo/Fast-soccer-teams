@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { User, SchoolSettings } from '../types';
 import { 
   Shield, 
@@ -20,7 +20,10 @@ import {
   ExternalLink,
   CheckCircle2,
   X,
-  AlertCircle
+  AlertCircle,
+  CreditCard,
+  Sparkles,
+  ArrowRight
 } from 'lucide-react';
 
 interface Props {
@@ -45,6 +48,20 @@ const UserSettings: React.FC<Props> = ({
   const dataInputRef = useRef<HTMLInputElement>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'IDLE' | 'CONNECTED' | 'ERROR'>('IDLE');
+
+  // Verificar estado al cargar
+  useEffect(() => {
+    const checkKey = async () => {
+      const aistudio = (window as any).aistudio;
+      if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
+        const hasKey = await aistudio.hasSelectedApiKey();
+        setApiStatus(hasKey ? 'CONNECTED' : 'IDLE');
+        setSchoolSettings(prev => ({ ...prev, googleDriveLinked: hasKey }));
+      }
+    };
+    checkKey();
+  }, []);
 
   const handleAddUser = () => {
     const username = prompt("Nombre de usuario:");
@@ -74,6 +91,7 @@ const UserSettings: React.FC<Props> = ({
     const aistudio = (window as any).aistudio;
     if (aistudio && typeof aistudio.hasSelectedApiKey === 'function') {
       const hasKey = await aistudio.hasSelectedApiKey();
+      setApiStatus(hasKey ? 'CONNECTED' : 'IDLE');
       setSchoolSettings(prev => ({ ...prev, googleDriveLinked: hasKey }));
     }
     setTimeout(() => setIsVerifying(false), 800);
@@ -85,22 +103,26 @@ const UserSettings: React.FC<Props> = ({
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
         await aistudio.openSelectKey();
+        setApiStatus('CONNECTED');
         setSchoolSettings(prev => ({ 
           ...prev, 
           googleDriveLinked: true,
           lastCloudSync: new Date().toISOString() 
         }));
-      } catch (err) {
+      } catch (err: any) {
+        if (err.message?.includes("entity was not found")) {
+           setApiStatus('ERROR');
+        }
         console.error("Error al abrir selector:", err);
       }
     } else {
       alert(
-        "ESTADO DEL ENTORNO:\n\n" +
-        "La sincronización directa con Google Cloud requiere estar en un navegador de PC.\n\n" +
-        "PARA CELULAR:\n" +
-        "1. Usa 'Exportar PC' en tu computadora.\n" +
-        "2. Pásate el archivo .json al celular.\n" +
-        "3. Usa 'Importar PC' aquí en tu celular."
+        "ENTORNO NO COMPATIBLE:\n\n" +
+        "La vinculación directa requiere Chrome en PC.\n\n" +
+        "SOLUCIÓN PARA CELULAR:\n" +
+        "1. Abre la app en tu PC.\n" +
+        "2. Haz la vinculación allá.\n" +
+        "3. Usa 'Exportar' en PC e 'Importar' aquí."
       );
     }
   };
@@ -160,6 +182,79 @@ const UserSettings: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-6">
+          {/* Alerta de Error de Facturación (Contextual) */}
+          {apiStatus === 'ERROR' && (
+            <div className="bg-red-600 p-6 rounded-3xl text-white shadow-xl shadow-red-900/20 border-2 border-red-500 animate-pulse">
+              <div className="flex items-center gap-3 mb-3">
+                <AlertCircle className="w-6 h-6 shrink-0" />
+                <h4 className="font-black text-sm uppercase tracking-tight">Acción Requerida</h4>
+              </div>
+              <p className="text-[11px] font-medium leading-relaxed opacity-90 mb-4">
+                Google detectó que tu proyecto no tiene facturación activa ("No Paid Project").
+              </p>
+              <button 
+                onClick={() => setShowHelpModal(true)}
+                className="w-full bg-white text-red-600 py-2 rounded-xl font-black text-[10px] uppercase hover:bg-red-50 transition"
+              >
+                VER SOLUCIÓN PASO A PASO
+              </button>
+            </div>
+          )}
+
+          {/* Sincronización e IA */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full opacity-40"></div>
+            <div className="flex justify-between items-start mb-4 relative z-10">
+              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
+                <Sparkles className="w-5 h-5 text-purple-600" /> Inteligencia Artificial
+              </h3>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setShowHelpModal(true)}
+                  className="p-1.5 text-slate-400 hover:text-purple-600 transition hover:bg-purple-50 rounded-lg"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                </button>
+                {apiStatus === 'CONNECTED' && (
+                  <button 
+                    onClick={verifyAccountStatus}
+                    disabled={isVerifying}
+                    className="p-1.5 text-slate-400 hover:text-blue-600 transition hover:bg-blue-50 rounded-lg"
+                  >
+                    <RefreshCcw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <p className="text-[11px] text-slate-500 mb-6 relative z-10 leading-relaxed">
+              La IA Gemini requiere una vinculación válida con Google Cloud para funcionar.
+            </p>
+            
+            <div className="space-y-4 relative z-10">
+              <button 
+                onClick={handleToggleGoogleDrive}
+                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${apiStatus === 'CONNECTED' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-900 text-white hover:bg-black'}`}
+              >
+                {apiStatus === 'CONNECTED' ? (
+                  <><CheckCircle2 className="w-4 h-4" /> IA CONECTADA</>
+                ) : (
+                  <><Chrome className="w-4 h-4" /> VINCULAR GMAIL</>
+                )}
+              </button>
+
+              {apiStatus === 'CONNECTED' && (
+                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[9px] font-black uppercase text-blue-600 mb-1.5 ml-1">Estado del Proyecto</label>
+                  <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100 flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[10px] font-bold text-emerald-800 uppercase">Listo para operar</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Perfil Institucional */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
             <h3 className="text-lg font-bold flex items-center gap-2 mb-6 text-slate-800">
@@ -196,74 +291,6 @@ const UserSettings: React.FC<Props> = ({
               </div>
             </div>
           </div>
-
-          {/* Sincronización */}
-          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full opacity-40"></div>
-            <div className="flex justify-between items-start mb-4 relative z-10">
-              <h3 className="text-lg font-bold flex items-center gap-2 text-slate-800">
-                <Share2 className="w-5 h-5 text-blue-600" /> Sincronización
-              </h3>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowHelpModal(true)}
-                  className="p-1.5 text-slate-400 hover:text-purple-600 transition hover:bg-purple-50 rounded-lg"
-                  title="Ayuda técnica"
-                >
-                  <HelpCircle className="w-4 h-4" />
-                </button>
-                {schoolSettings.googleDriveLinked && (
-                  <button 
-                    onClick={verifyAccountStatus}
-                    disabled={isVerifying}
-                    className="p-1.5 text-slate-400 hover:text-blue-600 transition hover:bg-blue-50 rounded-lg"
-                  >
-                    <RefreshCcw className={`w-4 h-4 ${isVerifying ? 'animate-spin' : ''}`} />
-                  </button>
-                )}
-              </div>
-            </div>
-            
-            <p className="text-[11px] text-slate-500 mb-6 relative z-10 leading-relaxed font-medium">
-              Vincular tu cuenta permite guardar respaldos automáticos y activar la IA (Sólo PC).
-            </p>
-            
-            <div className="space-y-4 relative z-10">
-              <button 
-                onClick={handleToggleGoogleDrive}
-                className={`w-full flex items-center justify-center gap-3 py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] transition shadow-lg ${schoolSettings.googleDriveLinked ? 'bg-amber-50 text-amber-600 border border-amber-100 hover:bg-amber-100' : 'bg-slate-900 text-white hover:bg-black'}`}
-              >
-                {schoolSettings.googleDriveLinked ? (
-                  <><RotateCcw className="w-4 h-4" /> CAMBIAR CUENTA GMAIL</>
-                ) : (
-                  <><Chrome className="w-4 h-4" /> VINCULAR GMAIL</>
-                )}
-              </button>
-
-              {schoolSettings.googleDriveLinked && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                  <label className="block text-[9px] font-black uppercase text-blue-600 mb-1.5 ml-1">Correo Vinculado</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
-                    <input 
-                      type="email" 
-                      placeholder="Correo Gmail..."
-                      value={schoolSettings.linkedEmail || ''}
-                      onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)}
-                      className="w-full pl-9 pr-4 py-2.5 bg-blue-50 border border-blue-100 rounded-xl text-xs font-bold text-blue-900 focus:ring-2 focus:ring-blue-400 outline-none"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 p-4 bg-slate-50 rounded-2xl border border-slate-100 flex gap-3">
-              <Smartphone className="w-5 h-5 text-slate-400 shrink-0" />
-              <p className="text-[9px] text-slate-400 italic">
-                Usa 'Importar/Exportar' para mover datos entre tu PC y tu Celular.
-              </p>
-            </div>
-          </div>
         </div>
 
         <div className="lg:col-span-2 space-y-8">
@@ -272,9 +299,9 @@ const UserSettings: React.FC<Props> = ({
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
               <div>
                 <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-                  <Users className="w-6 h-6 text-blue-600" /> Operadores
+                  <Users className="w-6 h-6 text-blue-600" /> Operadores del Sistema
                 </h3>
-                <p className="text-xs text-slate-500">Usuarios con acceso al sistema.</p>
+                <p className="text-xs text-slate-500">Usuarios con acceso administrativo.</p>
               </div>
               <button 
                 onClick={handleAddUser} 
@@ -306,10 +333,10 @@ const UserSettings: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Datos de Sede */}
+          {/* Sede */}
           <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-2 mb-8">
-              <Server className="w-6 h-6 text-blue-600" /> Datos de Sede
+              <Server className="w-6 h-6 text-blue-600" /> Ubicación y Contacto
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -325,14 +352,14 @@ const UserSettings: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Modal de Ayuda Técnica - Configuración Google */}
+      {/* Modal de Ayuda Técnica - SOLUCIÓN FACTURACIÓN */}
       {showHelpModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
             <div className="p-6 bg-purple-600 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <HelpCircle className="w-6 h-6" />
-                <h3 className="text-lg font-black uppercase tracking-tight">Guía de Configuración Google</h3>
+                <h3 className="text-lg font-black uppercase tracking-tight">Solucionar Error de Facturación</h3>
               </div>
               <button onClick={() => setShowHelpModal(false)} className="hover:bg-white/20 p-2 rounded-xl transition">
                 <X className="w-6 h-6" />
@@ -340,62 +367,64 @@ const UserSettings: React.FC<Props> = ({
             </div>
             
             <div className="flex-1 overflow-y-auto p-8 space-y-8">
-              <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex gap-4">
-                <AlertCircle className="w-6 h-6 text-amber-600 shrink-0" />
-                <p className="text-xs text-amber-800 font-medium leading-relaxed">
-                  Para activar la IA y la nube, necesitas configurar un proyecto en <strong>Google Cloud</strong>. 
-                  Sigue estos pasos exactamente para evitar errores de facturación.
+              <div className="bg-red-50 border border-red-200 p-5 rounded-2xl">
+                <h4 className="font-bold text-red-900 mb-2 flex items-center gap-2">
+                   <AlertCircle className="w-4 h-4" /> ¿Por qué sale "No Paid Project"?
+                </h4>
+                <p className="text-xs text-red-800 leading-relaxed font-medium">
+                  Google exige que el proyecto de Google Cloud tenga un método de pago vinculado para usar los modelos de IA más recientes (Gemini 3), incluso para el uso gratuito.
                 </p>
               </div>
 
-              <div className="space-y-6">
+              <div className="space-y-8">
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm shrink-0">1</div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 mb-1">Habilitar la API</h4>
-                    <p className="text-xs text-slate-500 mb-2">Busca y habilita <strong>"Generative Language API"</strong> en tu consola de Google Cloud.</p>
-                    <a href="https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com" target="_blank" className="text-[10px] font-bold text-purple-600 flex items-center gap-1 hover:underline">
-                      IR A LA BIBLIOTECA DE GOOGLE CLOUD <ExternalLink className="w-3 h-3" />
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-1">Vincular Facturación</h4>
+                    <p className="text-xs text-slate-500 mb-3">Entra a la Consola de Facturación de Google Cloud y agrega una tarjeta o cuenta bancaria.</p>
+                    <a href="https://console.cloud.google.com/billing" target="_blank" className="bg-purple-50 text-purple-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase inline-flex items-center gap-2 border border-purple-100 hover:bg-purple-100 transition">
+                      ABRIR FACTURACIÓN GOOGLE <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm shrink-0">2</div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 mb-1">Crear Credenciales</h4>
-                    <p className="text-xs text-slate-500 mb-3">En el menú "Credenciales", haz clic en "+ Crear credenciales" y elige <strong>"Clave de API"</strong>.</p>
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                      <p className="text-[11px] font-black text-slate-400 uppercase mb-2 italic">Si te pregunta "¿A qué datos quieres acceder?":</p>
-                      <div className="flex items-center gap-2 bg-white p-3 rounded-lg border border-purple-200 shadow-sm">
-                        <CheckCircle2 className="w-4 h-4 text-purple-600" />
-                        <span className="text-xs font-black text-purple-900">SELECCIONA: "DATOS PÚBLICOS" (Public Data)</span>
-                      </div>
-                      <p className="text-[9px] text-slate-400 mt-2">No elijas "Datos de usuario" a menos que quieras configurar la pantalla de consentimiento OAuth.</p>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-1">Asignar al Proyecto</h4>
+                    <p className="text-xs text-slate-500 mb-3">Busca tu proyecto (Academia Deportiva) y asígnale la cuenta de facturación que creaste.</p>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-[10px] font-bold text-slate-400 italic">
+                      Sin este paso, el botón "Vincular Gmail" seguirá fallando.
                     </div>
                   </div>
                 </div>
 
                 <div className="flex gap-4">
                   <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-black text-sm shrink-0">3</div>
-                  <div>
-                    <h4 className="font-bold text-slate-900 mb-1">Vincular a la App</h4>
-                    <p className="text-xs text-slate-500">Usa el botón "VINCULAR GMAIL" en esta pantalla. Al elegir tu cuenta, Google detectará tu clave y activará las funciones.</p>
+                  <div className="flex-1">
+                    <h4 className="font-bold text-slate-900 mb-1">Re-vincular en la App</h4>
+                    <p className="text-xs text-slate-500 mb-3">Cierra este cuadro y vuelve a pulsar el botón negro <strong>"VINCULAR GMAIL"</strong>.</p>
+                    <div className="flex items-center gap-2 text-emerald-600 bg-emerald-50 p-2 rounded-lg w-fit">
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span className="text-[9px] font-black uppercase">Esta vez funcionará correctamente</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100 text-center">
-                <p className="text-[10px] text-slate-400">¿Sigues teniendo dudas? <br /> Consulta la <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" className="underline hover:text-purple-600">documentación oficial de Google AI Studio</a>.</p>
+              <div className="pt-6 border-t border-slate-100">
+                <p className="text-[10px] text-slate-400 text-center leading-relaxed">
+                  ¿Es seguro? Sí, Google tiene un nivel gratuito muy generoso. No se te cobrará nada a menos que tu academia realice miles de consultas de IA por minuto.
+                </p>
               </div>
             </div>
             
             <div className="p-6 border-t border-slate-100 bg-slate-50">
               <button 
                 onClick={() => setShowHelpModal(false)}
-                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition"
+                className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-black transition flex items-center justify-center gap-2"
               >
-                ENTENDIDO, VOLVER
+                ENTENDIDO, VOLVER A LA APP <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
