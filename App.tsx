@@ -31,10 +31,13 @@ import {
   CheckCircle2,
   Zap,
   Globe,
-  AlertCircle
+  AlertCircle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
-const APP_VERSION = "V2.8-Cloud-Pro";
+const APP_VERSION = "V2.9-Ultra-Sync";
+// Endpoint de respaldo más robusto
 const CLOUD_API_BASE = 'https://kvdb.io/A9S6J7uY2n9u2n9u2n9u2n/';
 
 const App: React.FC = () => {
@@ -71,7 +74,11 @@ const App: React.FC = () => {
 
   const syncWithCloud = useCallback(async (push = false, forceKey?: string) => {
     const key = forceKey || schoolSettings.cloudProjectKey;
-    if (!navigator.onLine || !key) return;
+    if (!navigator.onLine) {
+      setSyncError("Sin internet");
+      return;
+    }
+    if (!key) return;
     
     setIsSyncing(true);
     setSyncError(null);
@@ -83,16 +90,31 @@ const App: React.FC = () => {
           schoolSettings, students, teachers, payments, cashFlow, squads, users,
           lastGlobalUpdate: new Date().toISOString()
         };
+        const payload = JSON.stringify(allData);
+        
+        // Alerta de tamaño (limite de 64KB en kvdb gratuito aprox)
+        if (payload.length > 60000) {
+          console.warn("Payload muy grande:", payload.length);
+          // Opcional: Podríamos limpiar las fotos para sincronizar solo texto
+        }
+
         const response = await fetch(CLOUD_URL, {
           method: 'POST',
-          body: JSON.stringify(allData)
+          mode: 'cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: payload
         });
-        if (!response.ok) throw new Error("Error al subir datos");
+
+        if (!response.ok) {
+          const errText = await response.text();
+          throw new Error(errText || "Error del servidor");
+        }
+        
         setHasUnsavedChanges(false);
         setSchoolSettings(prev => ({ ...prev, lastSyncTimestamp: allData.lastGlobalUpdate }));
-        alert("✅ ¡DATOS SUBIDOS! Ahora ya puedes verlos en otros dispositivos.");
+        alert("✅ ¡ÉXITO! Datos sincronizados en la nube.");
       } else {
-        const response = await fetch(CLOUD_URL);
+        const response = await fetch(CLOUD_URL, { mode: 'cors' });
         if (response.ok) {
           const cloudData = await response.json();
           if (cloudData.lastGlobalUpdate !== schoolSettings.lastSyncTimestamp) {
@@ -102,11 +124,14 @@ const App: React.FC = () => {
               setRemoteUpdateAvailable(true);
             }
           }
+        } else if (response.status === 404) {
+           setSyncError("Proyecto vacío en nube");
         }
       }
-    } catch (e) {
-      console.error("Fallo en conexión remota:", e);
-      setSyncError("Error de conexión");
+    } catch (e: any) {
+      console.error("Error de sincronización:", e);
+      setSyncError(e.message || "Fallo de conexión");
+      if (push) alert("❌ Error al subir: Comprueba tu conexión o reduce el número de fotos.");
     } finally {
       setTimeout(() => setIsSyncing(false), 800);
     }
@@ -182,7 +207,7 @@ const App: React.FC = () => {
     setIsSyncing(true);
     const CLOUD_URL = `${CLOUD_API_BASE}${schoolSettings.cloudProjectKey}`;
     try {
-      const response = await fetch(CLOUD_URL);
+      const response = await fetch(CLOUD_URL, { mode: 'cors' });
       const data = await response.json();
       handleImportAllData(data);
       setRemoteUpdateAvailable(false);
@@ -242,7 +267,10 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-             <p className="text-[9px] font-black text-blue-400 mb-2">{APP_VERSION}</p>
+             <div className="flex items-center justify-center gap-2 mb-2">
+                {isOnline ? <Wifi className="w-3 h-3 text-emerald-500" /> : <WifiOff className="w-3 h-3 text-red-500" />}
+                <p className="text-[9px] font-black text-blue-400">{APP_VERSION}</p>
+             </div>
              <p className="text-[9px] font-bold text-slate-500 leading-tight">Desarrollo: Fastsystems<br/>Jesus Maldonado Castro</p>
           </div>
         </div>
@@ -260,20 +288,23 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
              {remoteUpdateAvailable && (
                <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2 rounded-full text-[9px] font-black uppercase animate-bounce shadow-lg">
-                 <Zap className="w-3 h-3" /> CAMBIOS NUBE
+                 <Zap className="w-3 h-3" /> DESCARGAR CAMBIOS
                </button>
              )}
              
              {schoolSettings.cloudProjectKey && isOnline && (
-               <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+               <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                   {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3 h-3" /> : <CloudCheck className="w-3 h-3" />)}
-                  <span className="hidden md:inline">{isSyncing ? 'SUBIENDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}</span>
+                  <span className="hidden md:inline">{isSyncing ? 'CONECTANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}</span>
                   <span className="md:hidden">{hasUnsavedChanges ? 'SUBIR' : 'OK'}</span>
                 </button>
              )}
 
              {syncError && (
-               <div className="bg-red-100 text-red-600 p-2 rounded-full" title={syncError}><AlertCircle className="w-4 h-4" /></div>
+               <div className="flex items-center gap-1 bg-red-100 text-red-600 px-3 py-1.5 rounded-full" title={syncError}>
+                 <AlertCircle className="w-3 h-3" />
+                 <span className="text-[8px] font-black uppercase">{syncError}</span>
+               </div>
              )}
           </div>
         </header>
