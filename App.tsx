@@ -30,10 +30,11 @@ import {
   HardDrive,
   CheckCircle2,
   Zap,
-  Globe
+  Globe,
+  AlertCircle
 } from 'lucide-react';
 
-// URL de la base de datos remota para sincronización (Bucket único para Fastsystems)
+const APP_VERSION = "V2.8-Cloud-Pro";
 const CLOUD_API_BASE = 'https://kvdb.io/A9S6J7uY2n9u2n9u2n9u2n/';
 
 const App: React.FC = () => {
@@ -47,6 +48,7 @@ const App: React.FC = () => {
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [remoteUpdateAvailable, setRemoteUpdateAvailable] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>({
     name: 'Academia Deportiva',
@@ -67,34 +69,33 @@ const App: React.FC = () => {
   const [squads, setSquads] = useState<MatchSquad[]>([]);
   const [users, setUsers] = useState<User[]>([{ id: '1', username: 'admin', role: 'ADMIN' }]);
 
-  // Función para Sincronización Remota REAL (Internet)
   const syncWithCloud = useCallback(async (push = false, forceKey?: string) => {
     const key = forceKey || schoolSettings.cloudProjectKey;
     if (!navigator.onLine || !key) return;
     
     setIsSyncing(true);
+    setSyncError(null);
     const CLOUD_URL = `${CLOUD_API_BASE}${key}`;
     
     try {
       if (push) {
-        // ENVIAR DATOS A LA NUBE
         const allData = { 
           schoolSettings, students, teachers, payments, cashFlow, squads, users,
           lastGlobalUpdate: new Date().toISOString()
         };
-        await fetch(CLOUD_URL, {
+        const response = await fetch(CLOUD_URL, {
           method: 'POST',
           body: JSON.stringify(allData)
         });
+        if (!response.ok) throw new Error("Error al subir datos");
         setHasUnsavedChanges(false);
         setSchoolSettings(prev => ({ ...prev, lastSyncTimestamp: allData.lastGlobalUpdate }));
+        alert("✅ ¡DATOS SUBIDOS! Ahora ya puedes verlos en otros dispositivos.");
       } else {
-        // CONSULTAR DATOS DE LA NUBE
         const response = await fetch(CLOUD_URL);
         if (response.ok) {
           const cloudData = await response.json();
           if (cloudData.lastGlobalUpdate !== schoolSettings.lastSyncTimestamp) {
-            // Si venimos de un link de invitación, aplicamos automáticamente
             if (forceKey) {
               handleImportAllData(cloudData);
             } else {
@@ -105,25 +106,22 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error("Fallo en conexión remota:", e);
+      setSyncError("Error de conexión");
     } finally {
       setTimeout(() => setIsSyncing(false), 800);
     }
   }, [schoolSettings, students, teachers, payments, cashFlow, squads, users]);
 
-  // Manejo de invitaciones por Link
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const projectKey = params.get('project');
     if (projectKey && isDataLoaded) {
       setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
       window.history.replaceState({}, document.title, window.location.pathname);
-      // Forzar descarga inmediata al detectar link nuevo
       syncWithCloud(false, projectKey);
-      alert(`🚀 Conectado a la Nube: ${projectKey}. Descargando datos...`);
     }
   }, [isDataLoaded, syncWithCloud]);
 
-  // Ciclo de vida de carga inicial
   useEffect(() => {
     const loadLocalData = async () => {
       try {
@@ -132,7 +130,6 @@ const App: React.FC = () => {
           db.getAll('schoolSettings'), db.getAll('students'), db.getAll('teachers'),
           db.getAll('payments'), db.getAll('cashFlow'), db.getAll('squads'), db.getAll('users')
         ]);
-
         if (sSettings) setSchoolSettings({ ...schoolSettings, ...sSettings });
         if (sStudents.length) setStudents(sStudents);
         if (sTeachers.length) setTeachers(sTeachers);
@@ -148,7 +145,6 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
-  // Guardado Automático Local (IndexedDB)
   const triggerSave = useCallback(async (store: string, data: any) => {
     if (!isDataLoaded) return;
     await db.save(store, data);
@@ -190,18 +186,13 @@ const App: React.FC = () => {
       const data = await response.json();
       handleImportAllData(data);
       setRemoteUpdateAvailable(false);
-      alert("✅ Datos actualizados desde la nube.");
+      alert("✅ Datos actualizados correctamente.");
     } catch (e) {
-      alert("Error al descargar actualización.");
+      alert("Error al descargar.");
     } finally {
       setIsSyncing(false);
     }
   };
-
-  useEffect(() => {
-    const interval = setInterval(() => syncWithCloud(false), 45000);
-    return () => clearInterval(interval);
-  }, [syncWithCloud]);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -222,7 +213,8 @@ const App: React.FC = () => {
         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600"></div>
           <Trophy className="w-16 h-16 text-blue-600 mx-auto mb-6" />
-          <h1 className="text-2xl font-black mb-10 text-slate-900 uppercase tracking-tighter">{schoolSettings.name}</h1>
+          <h1 className="text-2xl font-black mb-1 text-slate-900 uppercase tracking-tighter">{schoolSettings.name}</h1>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">{APP_VERSION}</p>
           <div className="space-y-3">
             {users.map(user => (
               <button key={user.id} onClick={() => setCurrentUser(user)} className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-blue-50 hover:border-blue-400 transition-all group">
@@ -250,53 +242,39 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-             <div className="bg-white/5 p-4 rounded-2xl mb-4 text-left border border-white/5">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">PROYECTO NUBE</p>
-                <div className="flex items-center gap-2">
-                   <Globe className="w-3 h-3 text-blue-400" />
-                   <p className="text-[10px] font-bold text-blue-400 truncate">{schoolSettings.cloudProjectKey || 'SIN VINCULAR'}</p>
-                </div>
-             </div>
+             <p className="text-[9px] font-black text-blue-400 mb-2">{APP_VERSION}</p>
              <p className="text-[9px] font-bold text-slate-500 leading-tight">Desarrollo: Fastsystems<br/>Jesus Maldonado Castro</p>
           </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30">
-          <div className="flex items-center gap-4">
+        <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+          <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
-            <div>
-              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{NAV_ITEMS.find(i => i.id === currentView)?.label}</h2>
-              <div className="flex items-center gap-2">
-                 <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-                 <span className="text-[9px] font-black uppercase text-slate-400">
-                    {isOnline ? `En línea: ${schoolSettings.linkedEmail || 'Sin correo vinculado'}` : 'Modo fuera de línea'}
-                 </span>
-              </div>
-            </div>
+            <h2 className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] md:max-w-none">
+              {NAV_ITEMS.find(i => i.id === currentView)?.label}
+            </h2>
           </div>
           
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
              {remoteUpdateAvailable && (
-               <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase animate-bounce shadow-lg">
-                 <Zap className="w-3.5 h-3.5" /> Hay cambios en la nube
+               <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2 rounded-full text-[9px] font-black uppercase animate-bounce shadow-lg">
+                 <Zap className="w-3 h-3" /> CAMBIOS NUBE
                </button>
              )}
              
-             <div className="flex items-center gap-2">
-               <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border transition-all ${showSaveConfirm ? 'bg-emerald-600 text-white border-emerald-500 scale-105 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                  {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5 opacity-40" />}
-                  {showSaveConfirm ? 'GUARDADO LOCAL' : `Caja: ${lastSavedTime || '---'}`}
-               </div>
+             {schoolSettings.cloudProjectKey && isOnline && (
+               <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3 h-3" /> : <CloudCheck className="w-3 h-3" />)}
+                  <span className="hidden md:inline">{isSyncing ? 'SUBIENDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}</span>
+                  <span className="md:hidden">{hasUnsavedChanges ? 'SUBIR' : 'OK'}</span>
+                </button>
+             )}
 
-               {schoolSettings.cloudProjectKey && isOnline && (
-                 <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[10px] px-5 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3.5 h-3.5" /> : <CloudCheck className="w-3.5 h-3.5" />)}
-                    {isSyncing ? 'CONECTANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}
-                  </button>
-               )}
-             </div>
+             {syncError && (
+               <div className="bg-red-100 text-red-600 p-2 rounded-full" title={syncError}><AlertCircle className="w-4 h-4" /></div>
+             )}
           </div>
         </header>
 
@@ -310,10 +288,6 @@ const App: React.FC = () => {
             {currentView === 'REPORTS' && <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} schoolSettings={schoolSettings} />}
             {currentView === 'USERS' && <UserSettings users={users} setUsers={setUsers} currentUser={currentUser} schoolSettings={schoolSettings} setSchoolSettings={setSchoolSettings} allData={{ schoolSettings, students, teachers, payments, cashFlow, squads, users }} onImportData={handleImportAllData} />}
         </section>
-
-        <footer className="mt-auto py-6 border-t border-slate-200 text-center no-print">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
-        </footer>
       </main>
     </div>
   );

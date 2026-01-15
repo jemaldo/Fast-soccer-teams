@@ -1,29 +1,34 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Limpia el texto de la IA eliminando bloques de código markdown
 function cleanJsonResponse(text: string): string {
-  return text.replace(/```json/g, "").replace(/```/g, "").trim();
+  // Elimina cualquier rastro de ```json o ``` que la IA pueda incluir
+  let cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
+  // Busca el primer '{' y el último '}' por si hay texto extra
+  const start = cleaned.indexOf('{');
+  const end = cleaned.lastIndexOf('}');
+  if (start !== -1 && end !== -1) {
+    cleaned = cleaned.substring(start, end + 1);
+  }
+  return cleaned;
 }
 
-async function handleApiError(error: any) {
-  console.error("Gemini API Error:", error);
-  if (error.message?.includes("Requested entity was not found.")) {
-    const aistudio = (window as any).aistudio;
-    if (aistudio && typeof aistudio.openSelectKey === 'function') {
-      await aistudio.openSelectKey();
-    }
+async function ensureApiKey() {
+  const aistudio = (window as any).aistudio;
+  if (aistudio && !(await aistudio.hasSelectedApiKey())) {
+    await aistudio.openSelectKey();
   }
-  throw error;
 }
 
 export async function generateTrainingProgram(category: string, focus: string) {
   try {
+    await ensureApiKey();
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Genera un programa de entrenamiento semanal detallado para un equipo de fútbol categoría ${category}. El enfoque principal es ${focus}. 
-      Responde EXCLUSIVAMENTE en formato JSON puro, sin texto adicional, con la siguiente estructura: 
+      contents: `Genera un programa de entrenamiento para fútbol categoría ${category}. Enfoque: ${focus}. 
+      Responde SOLO el JSON con esta estructura: 
       { "sessions": [ { "day": "Lunes", "title": "...", "activities": ["...", "..."], "duration": "90 min" } ] }`,
       config: {
         responseMimeType: "application/json",
@@ -49,10 +54,16 @@ export async function generateTrainingProgram(category: string, focus: string) {
       }
     });
 
-    const cleanedText = cleanJsonResponse(response.text);
+    const text = response.text || "";
+    const cleanedText = cleanJsonResponse(text);
     return JSON.parse(cleanedText);
-  } catch (error) {
-    return handleApiError(error);
+  } catch (error: any) {
+    console.error("Gemini Error:", error);
+    if (error.message?.includes("entity was not found")) {
+      const aistudio = (window as any).aistudio;
+      if (aistudio) await aistudio.openSelectKey();
+    }
+    throw error;
   }
 }
 
@@ -62,10 +73,11 @@ export async function analyzeFinancialState(transactions: any[]) {
     const summary = JSON.stringify(transactions);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Analiza este resumen de transacciones financieras y proporciona 3 recomendaciones clave para mejorar la salud financiera de la academia: ${summary}`,
+      contents: `Analiza estas transacciones y da 3 consejos financieros: ${summary}`,
     });
     return response.text;
   } catch (error) {
-    return handleApiError(error);
+    console.error(error);
+    return "No se pudo realizar el análisis financiero en este momento.";
   }
 }
