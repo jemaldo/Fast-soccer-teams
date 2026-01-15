@@ -23,7 +23,9 @@ import {
   Info,
   Share2,
   Settings,
-  Trash2
+  Trash2,
+  Upload,
+  AlertTriangle
 } from 'lucide-react';
 
 interface Props {
@@ -39,7 +41,7 @@ interface Props {
 const UserSettings: React.FC<Props> = ({ 
   users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData
 }) => {
-  const dataInputRef = useRef<HTMLInputElement>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
   const [newCategory, setNewCategory] = useState('');
   const [newPosition, setNewPosition] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -66,11 +68,31 @@ const UserSettings: React.FC<Props> = ({
     const baseUrl = window.location.origin + window.location.pathname;
     const inviteUrl = `${baseUrl}?project=${schoolSettings.cloudProjectKey}`;
     navigator.clipboard.writeText(inviteUrl);
-    alert("🚀 ¡Link de Invitación Copiado!\n\nEnvía este link a tu colega para conectarlo.");
+    alert("🚀 ¡Link de Invitación Copiado!\n\nEnvía este link a tu colega para conectarlo automáticamente.");
   };
 
   const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
     setSchoolSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const jsonData = JSON.parse(event.target?.result as string);
+        if (confirm("¿Estás seguro de importar este backup? Se reemplazarán todos los datos actuales.")) {
+          onImportData(jsonData);
+          alert("✅ Backup importado correctamente.");
+        }
+      } catch (err) {
+        alert("❌ Error al leer el archivo. Asegúrate de que sea un archivo .json válido.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset input
   };
 
   const addCategory = () => {
@@ -81,7 +103,9 @@ const UserSettings: React.FC<Props> = ({
   };
 
   const removeCategory = (cat: string) => {
-    setSchoolSettings(prev => ({ ...prev, categories: prev.categories.filter(c => c !== cat) }));
+    if (confirm(`¿Eliminar categoría "${cat}"?`)) {
+      setSchoolSettings(prev => ({ ...prev, categories: prev.categories.filter(c => c !== cat) }));
+    }
   };
 
   const addPosition = () => {
@@ -92,7 +116,9 @@ const UserSettings: React.FC<Props> = ({
   };
 
   const removePosition = (pos: string) => {
-    setSchoolSettings(prev => ({ ...prev, positions: prev.positions.filter(p => p !== pos) }));
+    if (confirm(`¿Eliminar posición "${pos}"?`)) {
+      setSchoolSettings(prev => ({ ...prev, positions: prev.positions.filter(p => p !== pos) }));
+    }
   };
 
   return (
@@ -140,18 +166,35 @@ const UserSettings: React.FC<Props> = ({
                     value={schoolSettings.cloudProjectKey || ''}
                     placeholder="Sin código vinculado"
                     onChange={(e) => handleUpdateSetting('cloudProjectKey', e.target.value.toUpperCase())}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
                   />
-                  <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><Zap className="w-4 h-4" /></button>
+                  <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition">
+                    <Zap className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
+              
+              <div className="flex items-start gap-3 bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20">
+                <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Cualquier persona con este código podrá ver y editar los mismos datos. Los cambios se sincronizan automáticamente cada 30 segundos.
+                </p>
+              </div>
             </div>
+
             <div className="space-y-4">
                <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
-                <ShieldCheck className="w-6 h-6 text-emerald-500" />
+                <div className="bg-emerald-500/10 p-3 rounded-xl"><CheckCircle2 className="w-6 h-6 text-emerald-500" /></div>
                 <div>
                   <h4 className="text-sm font-black uppercase tracking-tight">Estatus Global</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'Sincronizado' : 'Modo Solo Local'}</p>
+                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'Conexión Establecida' : 'Trabajando en Local'}</p>
+                </div>
+              </div>
+               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
+                <div className="bg-amber-500/10 p-3 rounded-xl"><RefreshCcw className="w-6 h-6 text-amber-500" /></div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Sincronización Inteligente</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">Verificación remota activa y segura.</p>
                 </div>
               </div>
             </div>
@@ -182,64 +225,92 @@ const UserSettings: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* GESTION DE LISTAS */}
+          {/* GESTION DE LISTAS (CATEGORÍAS Y POSICIONES) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                   <ListFilter className="w-4 h-4" /> Categorías
-                </h4>
-                <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                     <ListFilter className="w-4 h-4" /> Categorías
+                  </h4>
+                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-black">{schoolSettings.categories.length}</span>
+                </div>
+                <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
                    {schoolSettings.categories.map(cat => (
-                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition hover:border-blue-200">
                          <span className="text-xs font-bold text-slate-700">{cat}</span>
-                         <button onClick={() => removeCategory(cat)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                         <button onClick={() => removeCategory(cat)} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                    ))}
                 </div>
                 <div className="flex gap-2">
-                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="Nueva..." />
-                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} onKeyPress={e => e.key === 'Enter' && addCategory()} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-blue-500" placeholder="Nueva categoría..." />
+                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200"><Plus className="w-4 h-4" /></button>
                 </div>
              </div>
 
              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
-                   <Settings className="w-4 h-4" /> Posiciones
-                </h4>
-                <div className="space-y-2 mb-4">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                     <Settings className="w-4 h-4" /> Posiciones
+                  </h4>
+                  <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-[10px] font-black">{schoolSettings.positions.length}</span>
+                </div>
+                <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
                    {schoolSettings.positions.map(pos => (
-                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition hover:border-purple-200">
                          <span className="text-xs font-bold text-slate-700">{pos}</span>
-                         <button onClick={() => removePosition(pos)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                         <button onClick={() => removePosition(pos)} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                    ))}
                 </div>
                 <div className="flex gap-2">
-                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="Nueva..." />
-                   <button onClick={addPosition} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} onKeyPress={e => e.key === 'Enter' && addPosition()} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-purple-500" placeholder="Nueva posición..." />
+                   <button onClick={addPosition} className="bg-purple-600 text-white p-2 rounded-xl hover:bg-purple-700 shadow-lg shadow-purple-200"><Plus className="w-4 h-4" /></button>
                 </div>
              </div>
           </div>
         </div>
 
         <div className="space-y-6">
-           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center">
-              <Usb className="w-8 h-8 text-amber-500 mx-auto mb-4" />
-              <h3 className="text-sm font-black uppercase mb-4">Exportación Total</h3>
-              <button onClick={() => {
-                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
-                const anchor = document.createElement('a');
-                anchor.setAttribute("href", dataStr);
-                anchor.setAttribute("download", "BACKUP_SISTEMA.json");
-                anchor.click();
-              }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase hover:bg-blue-600 transition">
-                Descargar Backup
-              </button>
+           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center relative overflow-hidden group">
+              <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-50 rounded-full blur-2xl opacity-60"></div>
+              <div className="relative z-10">
+                <Usb className="w-8 h-8 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-sm font-black uppercase mb-4 tracking-tighter">Backup del Sistema</h3>
+                
+                <div className="space-y-3">
+                  <button onClick={() => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
+                    const anchor = document.createElement('a');
+                    anchor.setAttribute("href", dataStr);
+                    anchor.setAttribute("download", `ACADEMIA_PRO_BACKUP_${new Date().toISOString().split('T')[0]}.json`);
+                    anchor.click();
+                  }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">
+                    Descargar Backup
+                  </button>
+
+                  <button onClick={() => jsonInputRef.current?.click()} className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" /> Cargar Backup (.json)
+                  </button>
+                  <input type="file" ref={jsonInputRef} onChange={handleImportJson} accept=".json" className="hidden" />
+                </div>
+
+                <div className="mt-6 flex items-start gap-2 text-left bg-amber-50 p-4 rounded-xl border border-amber-100">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[9px] text-amber-800 font-bold leading-relaxed">
+                    IMPORTANTE: Al cargar un backup, los datos actuales serán reemplazados por los del archivo seleccionado.
+                  </p>
+                </div>
+              </div>
            </div>
-           <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white">
+
+           <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
               <Sparkles className="w-6 h-6 mb-4" />
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Soporte y Desarrollo</p>
-              <p className="text-xs font-bold mt-2 leading-relaxed">Fastsystems<br/>Jesus Maldonado Castro</p>
+              <div className="relative z-10">
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Soporte y Desarrollo</p>
+                <p className="text-lg font-black leading-tight tracking-tighter">Fastsystems<br/>Jesus Maldonado Castro</p>
+                <p className="text-[9px] font-bold mt-4 opacity-70">Empoderando el talento deportivo con tecnología de élite.</p>
+              </div>
            </div>
         </div>
       </div>

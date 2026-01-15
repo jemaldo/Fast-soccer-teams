@@ -177,11 +177,13 @@ const App: React.FC = () => {
     if (data.payments) setPayments(data.payments);
     if (data.cashFlow) setCashFlow(data.cashFlow);
     if (data.squads) setSquads(data.squads);
+    if (data.users) setUsers(data.users);
     if (data.schoolSettings) {
-      setSchoolSettings({
+      setSchoolSettings(prev => ({
+        ...prev,
         ...data.schoolSettings,
-        lastSyncTimestamp: data.lastGlobalUpdate
-      });
+        lastSyncTimestamp: data.lastGlobalUpdate || prev.lastSyncTimestamp
+      }));
     }
     setHasUnsavedChanges(false);
   };
@@ -194,7 +196,7 @@ const App: React.FC = () => {
         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600"></div>
           <Trophy className="w-16 h-16 text-blue-600 mx-auto mb-6" />
-          <h1 className="text-2xl font-black mb-10 text-slate-900 uppercase">{schoolSettings.name}</h1>
+          <h1 className="text-2xl font-black mb-10 text-slate-900 uppercase tracking-tighter">{schoolSettings.name}</h1>
           <div className="space-y-3">
             {users.map(user => (
               <button key={user.id} onClick={() => setCurrentUser(user)} className="w-full flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-2xl hover:bg-blue-50 hover:border-blue-400 transition-all group">
@@ -213,20 +215,20 @@ const App: React.FC = () => {
     <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-10"><Trophy className="w-6 h-6 text-blue-500" /><h1 className="font-black uppercase truncate text-sm">{schoolSettings.name}</h1></div>
+          <div className="flex items-center gap-3 mb-10"><Trophy className="w-6 h-6 text-blue-500" /><h1 className="font-black uppercase truncate text-sm tracking-tighter">{schoolSettings.name}</h1></div>
           <nav className="space-y-1 flex-1">
             {NAV_ITEMS.map((item) => (
-              <button key={item.id} onClick={() => setCurrentView(item.id as AppView)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === item.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+              <button key={item.id} onClick={() => setCurrentView(item.id as AppView)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:bg-slate-800'}`}>
                 {item.icon}<span className="font-bold text-sm">{item.label}</span>
               </button>
             ))}
           </nav>
           <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-             <div className="bg-white/5 p-4 rounded-2xl mb-4 text-left">
+             <div className="bg-white/5 p-4 rounded-2xl mb-4 text-left border border-white/5">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">PROYECTO NUBE</p>
                 <p className="text-[10px] font-bold text-blue-400 truncate">{schoolSettings.cloudProjectKey || 'SIN VINCULAR'}</p>
              </div>
-             <p className="text-[9px] font-bold text-slate-500">Desarrollo: Fastsystems Jesus Maldonado Castro</p>
+             <p className="text-[9px] font-bold text-slate-500 leading-tight">Desarrollo: Fastsystems<br/>Jesus Maldonado Castro</p>
           </div>
         </div>
       </aside>
@@ -236,11 +238,11 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
             <div>
-              <h2 className="text-lg font-black text-slate-900 uppercase">{NAV_ITEMS.find(i => i.id === currentView)?.label}</h2>
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tight">{NAV_ITEMS.find(i => i.id === currentView)?.label}</h2>
               <div className="flex items-center gap-2">
                  <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
                  <span className="text-[9px] font-black uppercase text-slate-400">
-                    {isOnline ? `En línea: ${schoolSettings.linkedEmail || 'Sin correo'}` : 'Modo fuera de línea'}
+                    {isOnline ? `En línea: ${schoolSettings.linkedEmail || 'Sin correo vinculado'}` : 'Modo fuera de línea'}
                  </span>
               </div>
             </div>
@@ -248,19 +250,19 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-3">
              {remoteUpdateAvailable && (
-               <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase animate-bounce">
+               <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase animate-bounce shadow-lg">
                  <Zap className="w-3.5 h-3.5" /> Hay cambios remotos
                </button>
              )}
              
              <div className="flex items-center gap-2">
-               <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border ${showSaveConfirm ? 'bg-emerald-600 text-white' : 'bg-slate-50 text-slate-400'}`}>
-                  {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5" />}
+               <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border transition-all ${showSaveConfirm ? 'bg-emerald-600 text-white border-emerald-500 scale-105 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                  {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5 opacity-40" />}
                   {showSaveConfirm ? 'GUARDADO LOCAL' : `Vigencia: ${lastSavedTime || '---'}`}
                </div>
 
                {schoolSettings.cloudProjectKey && isOnline && (
-                 <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[10px] px-5 py-2.5 rounded-full transition ${hasUnsavedChanges ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                 <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[10px] px-5 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                     {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3.5 h-3.5" /> : <CloudCheck className="w-3.5 h-3.5" />)}
                     {isSyncing ? 'SINCRONIZANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}
                   </button>
@@ -277,11 +279,11 @@ const App: React.FC = () => {
             {currentView === 'FINANCE' && <FinanceManager cashFlow={cashFlow} setCashFlow={setCashFlow} />}
             {currentView === 'MATCHES' && <MatchManager squads={squads} setSquads={setSquads} students={students} schoolSettings={schoolSettings} />}
             {currentView === 'TRAINING' && <TrainingManager />}
-            {currentView === 'REPORTS' && <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} />}
+            {currentView === 'REPORTS' && <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} schoolSettings={schoolSettings} />}
             {currentView === 'USERS' && <UserSettings users={users} setUsers={setUsers} currentUser={currentUser} schoolSettings={schoolSettings} setSchoolSettings={setSchoolSettings} allData={{ schoolSettings, students, teachers, payments, cashFlow, squads, users }} onImportData={handleImportAllData} />}
           </div>
-          <footer className="mt-12 py-8 border-t border-slate-200 text-center opacity-50 no-print">
-            <p className="text-[11px] font-bold text-slate-500">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
+          <footer className="mt-12 py-8 border-t border-slate-200 text-center no-print">
+            <p className="text-[11px] font-bold text-slate-500 opacity-60 uppercase tracking-widest">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
           </footer>
         </section>
       </main>
