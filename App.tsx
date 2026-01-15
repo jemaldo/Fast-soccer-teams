@@ -43,7 +43,8 @@ import {
   History,
   HardDrive,
   CheckCircle2,
-  Save
+  Save,
+  Mail
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -70,7 +71,8 @@ const App: React.FC = () => {
     email: 'admin@academia.com',
     googleDriveLinked: false,
     categories: CATEGORIES,
-    positions: POSITIONS
+    positions: POSITIONS,
+    linkedEmail: ''
   });
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -95,12 +97,12 @@ const App: React.FC = () => {
         ]);
 
         if (sSettings) {
-          // Asegurar que existan categorías y posiciones por defecto si es una versión vieja
           setSchoolSettings({
             ...schoolSettings,
             ...sSettings,
             categories: sSettings.categories || CATEGORIES,
-            positions: sSettings.positions || POSITIONS
+            positions: sSettings.positions || POSITIONS,
+            linkedEmail: sSettings.linkedEmail || ''
           });
         }
         if (sStudents.length) setStudents(sStudents);
@@ -195,7 +197,7 @@ const App: React.FC = () => {
 
   const handlePushToCloud = () => {
     if (!isOnline) {
-      alert("No puedes sincronizar sin internet. Tus datos están seguros en la base de datos local de este PC.");
+      alert("No puedes sincronizar sin internet. Tus datos están seguros localmente.");
       return;
     }
     if (!isGoogleAuthenticated) return;
@@ -265,7 +267,7 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-900">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
-          <p className="text-white font-black uppercase tracking-widest text-xs">Abriendo Base de Datos Local (IndexedDB)...</p>
+          <p className="text-white font-black uppercase tracking-widest text-xs">Cargando Sistema Operativo...</p>
         </div>
       </div>
     );
@@ -305,13 +307,6 @@ const App: React.FC = () => {
                ))}
             </div>
           </div>
-          <div className="mt-8 flex flex-col gap-2 items-center justify-center">
-             <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
-                <span className="text-[10px] font-black uppercase text-slate-400">{isOnline ? 'Conexión Segura Detectada' : 'Modo Fuera de Línea Activo'}</span>
-             </div>
-             <p className="text-[9px] text-slate-300 font-medium px-4">Tus datos se guardan en el disco duro local de este navegador.</p>
-          </div>
         </div>
       </div>
     );
@@ -331,42 +326,21 @@ const App: React.FC = () => {
                
                <h2 className="text-4xl font-black text-slate-900 tracking-tighter mb-4">Respalda tus Datos</h2>
                <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed mb-10">
-                  Actualmente tus datos solo viven en este PC. Vincular tu cuenta de Google te permite **recuperar todo si el PC se daña**.
+                  Tus datos viven en este PC. Vincula tu cuenta de Google Cloud para asegurar la persistencia en la nube.
                </p>
-
-               <div className="space-y-4 mb-10">
-                  <div className="flex items-start gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100 text-left">
-                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0 border border-slate-200">
-                        <HardDrive className="w-5 h-5 text-amber-600" />
-                     </div>
-                     <div>
-                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Estado: Almacenamiento Local</h4>
-                        <p className="text-[11px] text-slate-400">Los datos están en tu navegador. Si el PC falla, podrías perder la información.</p>
-                     </div>
-                  </div>
-                  <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100 text-left">
-                     <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0 border border-slate-200">
-                        <CloudLightning className="w-5 h-5 text-blue-600" />
-                     </div>
-                     <div>
-                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Sincronización en la Nube</h4>
-                        <p className="text-[11px] text-slate-400">Activa el respaldo para acceder desde cualquier PC y proteger tu academia.</p>
-                     </div>
-                  </div>
-               </div>
 
                <div className="flex flex-col gap-3">
                   <button 
                     onClick={handleGoogleAuth}
                     className="w-full bg-slate-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-600 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/20"
                   >
-                    <Chrome className="w-5 h-5" /> Vincular con Google (Recomendado)
+                    <Chrome className="w-5 h-5" /> Vincular con Google
                   </button>
                   <button 
                     onClick={() => setIsGoogleAuthenticated(true)}
                     className="w-full bg-white border border-slate-200 text-slate-400 py-4 rounded-[2.5rem] font-black text-[10px] uppercase tracking-widest hover:text-slate-600 transition"
                   >
-                    Continuar solo en local (Riesgoso)
+                    Continuar solo en local
                   </button>
                </div>
             </div>
@@ -375,7 +349,6 @@ const App: React.FC = () => {
     );
   }
 
-  // VISTA 3: Panel Principal (Dashboard)
   return (
     <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`
@@ -439,53 +412,40 @@ const App: React.FC = () => {
             >
               {isSidebarOpen ? <X /> : <Menu />}
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col">
               <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">
                 {NAV_ITEMS.find(i => i.id === currentView)?.label}
               </h2>
-              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-colors ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
-                {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
-                {isOnline ? 'En línea' : 'Desconectado'}
-              </div>
+              {isGoogleAuthenticated && (
+                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-blue-600 tracking-widest">
+                  <Mail className="w-2.5 h-2.5" />
+                  {schoolSettings.linkedEmail || 'CUENTA SIN ETIQUETAR'}
+                </div>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-2">
-               {/* Monitor de Guardado Local */}
                <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border transition-all duration-500 ${showSaveConfirm ? 'bg-emerald-600 text-white border-emerald-500 scale-105 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                   {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5 opacity-40" />}
-                  {showSaveConfirm ? 'CAMBIO GUARDADO EN DISCO' : `Último Guardado: ${lastSavedTime || 'Cargando...'}`}
+                  {showSaveConfirm ? 'GUARDADO EN DISCO' : `Vigencia: ${lastSavedTime || '---'}`}
                </div>
 
-               {!isOnline ? (
-                 <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-4 py-2 rounded-full border border-amber-100" title="Tus datos se guardan solo en este computador">
-                    <Database className="w-3.5 h-3.5" /> BASE LOCAL
-                 </div>
-               ) : schoolSettings.googleDriveLinked ? (
-                 <>
-                   {hasUnsavedChanges ? (
-                      <button 
-                        onClick={handlePushToCloud}
-                        disabled={isSyncing}
-                        className="flex items-center gap-2 text-white font-black text-[10px] bg-blue-600 px-5 py-2.5 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50"
-                      >
-                        {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
-                        {isSyncing ? 'PROTEGIENDO...' : 'SUBIR COPIA DE SEGURIDAD'}
-                      </button>
-                   ) : (
-                      <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-                        <CloudCheck className="w-3.5 h-3.5" /> DATOS RESPALDADOS
-                      </div>
-                   )}
-                 </>
-               ) : (
+               {isOnline && schoolSettings.googleDriveLinked ? (
                  <button 
-                  onClick={handleGoogleAuth}
-                  className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-4 py-2 rounded-full border border-amber-200 hover:bg-amber-100 transition"
-                 >
-                   <AlertCircle className="w-3.5 h-3.5" /> ACTIVAR RESPALDO
-                 </button>
+                    onClick={handlePushToCloud}
+                    disabled={isSyncing}
+                    className={`flex items-center gap-2 font-black text-[10px] px-5 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}
+                  >
+                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3.5 h-3.5" /> : <CloudCheck className="w-3.5 h-3.5" />)}
+                    {isSyncing ? 'SINCRONIZANDO...' : (hasUnsavedChanges ? 'SUBIR RESPALDO' : 'NUBE AL DÍA')}
+                  </button>
+               ) : (
+                 <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${isOnline ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-100 text-slate-400'}`}>
+                    {isOnline ? <AlertCircle className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                    {isOnline ? 'Nube Desconectada' : 'Modo Offline'}
+                 </div>
                )}
              </div>
           </div>
