@@ -3,29 +3,20 @@ import React, { useRef, useState } from 'react';
 import { User, SchoolSettings } from '../types';
 import { 
   Building2, 
-  Camera, 
-  Users, 
-  RefreshCcw, 
-  FileUp,
-  FileDown,
-  CheckCircle2,
-  X,
-  Sparkles,
-  Usb,
-  Database,
+  Globe, 
+  ShieldCheck, 
+  Copy, 
+  Zap, 
+  Share2, 
+  Settings, 
+  Trash2, 
+  Upload, 
+  AlertTriangle,
   Plus,
   ListFilter,
-  Mail,
-  Globe,
-  ShieldCheck,
-  Copy,
-  Zap,
-  Info,
-  Share2,
-  Settings,
-  Trash2,
-  Upload,
-  AlertTriangle
+  RefreshCw,
+  HardDrive,
+  DownloadCloud
 } from 'lucide-react';
 
 interface Props {
@@ -45,6 +36,44 @@ const UserSettings: React.FC<Props> = ({
   const [newCategory, setNewCategory] = useState('');
   const [newPosition, setNewPosition] = useState('');
   const [showKey, setShowKey] = useState(false);
+
+  const forceAppUpdate = () => {
+    if (confirm("Se limpiará la memoria temporal y se reiniciará la aplicación para obtener la última versión. ¿Continuar?")) {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (let registration of registrations) {
+            registration.unregister();
+          }
+          window.location.reload();
+        });
+      } else {
+        window.location.reload();
+      }
+    }
+  };
+
+  const forceCloudDownload = async () => {
+    if (!schoolSettings.cloudProjectKey) {
+      alert("No hay una llave de nube vinculada.");
+      return;
+    }
+    if (confirm("¿Descargar todos los datos de la nube ahora? Esto reemplazará tu información local.")) {
+      const CLOUD_API_BASE = 'https://kvdb.io/A9S6J7uY2n9u2n9u2n9u2n/';
+      const CLOUD_URL = `${CLOUD_API_BASE}${schoolSettings.cloudProjectKey}`;
+      try {
+        const response = await fetch(CLOUD_URL);
+        if (response.ok) {
+          const cloudData = await response.json();
+          onImportData(cloudData);
+          alert("✅ Datos sincronizados correctamente desde la nube.");
+        } else {
+          alert("❌ No se encontraron datos en la nube para esta llave.");
+        }
+      } catch (e) {
+        alert("❌ Error de conexión al descargar.");
+      }
+    }
+  };
 
   const generateProjectKey = () => {
     const key = `ACAD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -92,7 +121,7 @@ const UserSettings: React.FC<Props> = ({
       }
     };
     reader.readAsText(file);
-    e.target.value = ''; // Reset input
+    e.target.value = ''; 
   };
 
   const addCategory = () => {
@@ -143,14 +172,14 @@ const UserSettings: React.FC<Props> = ({
               </button>
             ) : (
               <div className="flex flex-wrap gap-2">
+                 <button onClick={forceCloudDownload} className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-lg">
+                    <DownloadCloud className="w-4 h-4" /> Bajar de Nube
+                 </button>
                  <button onClick={generateInviteLink} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-900/40">
                     <Share2 className="w-4 h-4" /> Link Invitación
                  </button>
                  <button onClick={copyKey} className="bg-white/10 hover:bg-white/20 px-4 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-bold border border-white/10">
                     <Copy className="w-4 h-4" /> Código
-                 </button>
-                 <button onClick={() => handleUpdateSetting('cloudProjectKey', '')} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-4 rounded-2xl transition text-xs font-bold border border-red-500/10">
-                    Desvincular
                  </button>
               </div>
             )}
@@ -177,26 +206,29 @@ const UserSettings: React.FC<Props> = ({
               <div className="flex items-start gap-3 bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20">
                 <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
                 <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Cualquier persona con este código podrá ver y editar los mismos datos. Los cambios se sincronizan automáticamente cada 30 segundos.
+                  Cualquier persona con este código podrá ver y editar los mismos datos. Los cambios se sincronizan automáticamente.
                 </p>
               </div>
             </div>
 
             <div className="space-y-4">
-               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
-                <div className="bg-emerald-500/10 p-3 rounded-xl"><CheckCircle2 className="w-6 h-6 text-emerald-500" /></div>
+              <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
+                <div className="bg-emerald-500/10 p-3 rounded-xl"><RefreshCw className="w-6 h-6 text-emerald-500" /></div>
                 <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Estatus Global</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'Conexión Establecida' : 'Trabajando en Local'}</p>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Estatus de Sincronización</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'Conexión Remota Activa' : 'Modo Solo Local'}</p>
                 </div>
               </div>
-               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
-                <div className="bg-amber-500/10 p-3 rounded-xl"><RefreshCcw className="w-6 h-6 text-amber-500" /></div>
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Sincronización Inteligente</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">Verificación remota activa y segura.</p>
+              <button 
+                onClick={forceAppUpdate}
+                className="w-full bg-amber-500/10 border border-amber-500/20 p-6 rounded-[2.5rem] flex items-center gap-5 hover:bg-amber-500/20 transition group"
+              >
+                <div className="bg-amber-500/10 p-3 rounded-xl group-hover:scale-110 transition"><Zap className="w-6 h-6 text-amber-500" /></div>
+                <div className="text-left">
+                  <h4 className="text-sm font-black uppercase tracking-tight text-amber-500">Actualizar Aplicación</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">Usa esto si los cambios no aparecen en tu celular.</p>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -225,18 +257,17 @@ const UserSettings: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* GESTION DE LISTAS (CATEGORÍAS Y POSICIONES) */}
+          {/* GESTION DE LISTAS */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
                 <div className="flex justify-between items-center mb-6">
                   <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                      <ListFilter className="w-4 h-4" /> Categorías
                   </h4>
-                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-black">{schoolSettings.categories.length}</span>
                 </div>
                 <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
                    {schoolSettings.categories.map(cat => (
-                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition hover:border-blue-200">
+                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition">
                          <span className="text-xs font-bold text-slate-700">{cat}</span>
                          <button onClick={() => removeCategory(cat)} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -253,11 +284,10 @@ const UserSettings: React.FC<Props> = ({
                   <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
                      <Settings className="w-4 h-4" /> Posiciones
                   </h4>
-                  <span className="bg-purple-50 text-purple-600 px-2 py-0.5 rounded text-[10px] font-black">{schoolSettings.positions.length}</span>
                 </div>
                 <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
                    {schoolSettings.positions.map(pos => (
-                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition hover:border-purple-200">
+                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100 group transition">
                          <span className="text-xs font-bold text-slate-700">{pos}</span>
                          <button onClick={() => removePosition(pos)} className="text-slate-300 hover:text-red-500 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
@@ -273,43 +303,24 @@ const UserSettings: React.FC<Props> = ({
 
         <div className="space-y-6">
            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center relative overflow-hidden group">
-              <div className="absolute -top-10 -left-10 w-32 h-32 bg-amber-50 rounded-full blur-2xl opacity-60"></div>
               <div className="relative z-10">
-                <Usb className="w-8 h-8 text-amber-500 mx-auto mb-4" />
-                <h3 className="text-sm font-black uppercase mb-4 tracking-tighter">Backup del Sistema</h3>
-                
+                <HardDrive className="w-8 h-8 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-sm font-black uppercase mb-4 tracking-tighter">Backup Local</h3>
                 <div className="space-y-3">
                   <button onClick={() => {
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
                     const anchor = document.createElement('a');
                     anchor.setAttribute("href", dataStr);
-                    anchor.setAttribute("download", `ACADEMIA_PRO_BACKUP_${new Date().toISOString().split('T')[0]}.json`);
+                    anchor.setAttribute("download", `BACKUP_${new Date().toISOString().split('T')[0]}.json`);
                     anchor.click();
                   }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">
                     Descargar Backup
                   </button>
-
                   <button onClick={() => jsonInputRef.current?.click()} className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition flex items-center justify-center gap-2">
-                    <Upload className="w-4 h-4" /> Cargar Backup (.json)
+                    <Upload className="w-4 h-4" /> Cargar Backup
                   </button>
                   <input type="file" ref={jsonInputRef} onChange={handleImportJson} accept=".json" className="hidden" />
                 </div>
-
-                <div className="mt-6 flex items-start gap-2 text-left bg-amber-50 p-4 rounded-xl border border-amber-100">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <p className="text-[9px] text-amber-800 font-bold leading-relaxed">
-                    IMPORTANTE: Al cargar un backup, los datos actuales serán reemplazados por los del archivo seleccionado.
-                  </p>
-                </div>
-              </div>
-           </div>
-
-           <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white shadow-xl shadow-blue-900/20 relative overflow-hidden">
-              <Sparkles className="w-6 h-6 mb-4" />
-              <div className="relative z-10">
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60 mb-2">Soporte y Desarrollo</p>
-                <p className="text-lg font-black leading-tight tracking-tighter">Fastsystems<br/>Jesus Maldonado Castro</p>
-                <p className="text-[9px] font-bold mt-4 opacity-70">Empoderando el talento deportivo con tecnología de élite.</p>
               </div>
            </div>
         </div>

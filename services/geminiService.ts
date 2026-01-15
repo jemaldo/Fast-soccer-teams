@@ -1,7 +1,13 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 
-// Helper to handle API errors and trigger key re-selection if necessary, following the specific guideline for "Requested entity was not found" error.
+// Limpia el texto de la IA eliminando bloques de código markdown
+function cleanJsonResponse(text: string): string {
+  return text.replace(/```json/g, "").replace(/```/g, "").trim();
+}
+
 async function handleApiError(error: any) {
+  console.error("Gemini API Error:", error);
   if (error.message?.includes("Requested entity was not found.")) {
     const aistudio = (window as any).aistudio;
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
@@ -13,12 +19,11 @@ async function handleApiError(error: any) {
 
 export async function generateTrainingProgram(category: string, focus: string) {
   try {
-    // Always create a new GoogleGenAI instance right before making an API call to ensure it uses the current process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Genera un programa de entrenamiento semanal detallado para un equipo de fútbol categoría ${category}. El enfoque principal es ${focus}. 
-      Responde en formato JSON con la siguiente estructura: 
+      Responde EXCLUSIVAMENTE en formato JSON puro, sin texto adicional, con la siguiente estructura: 
       { "sessions": [ { "day": "Lunes", "title": "...", "activities": ["...", "..."], "duration": "90 min" } ] }`,
       config: {
         responseMimeType: "application/json",
@@ -44,7 +49,8 @@ export async function generateTrainingProgram(category: string, focus: string) {
       }
     });
 
-    return JSON.parse(response.text);
+    const cleanedText = cleanJsonResponse(response.text);
+    return JSON.parse(cleanedText);
   } catch (error) {
     return handleApiError(error);
   }
@@ -52,7 +58,6 @@ export async function generateTrainingProgram(category: string, focus: string) {
 
 export async function analyzeFinancialState(transactions: any[]) {
   try {
-    // Always create a new GoogleGenAI instance right before making an API call to ensure it uses the current process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     const summary = JSON.stringify(transactions);
     const response = await ai.models.generateContent({
