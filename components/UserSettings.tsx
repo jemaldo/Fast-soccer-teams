@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState } from 'react';
 import { User, SchoolSettings } from '../types';
 import { 
   Building2, 
@@ -21,7 +21,9 @@ import {
   Copy,
   Zap,
   Info,
-  Share2
+  Share2,
+  Settings,
+  Trash2
 } from 'lucide-react';
 
 interface Props {
@@ -37,7 +39,6 @@ interface Props {
 const UserSettings: React.FC<Props> = ({ 
   users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData
 }) => {
-  const logoInputRef = useRef<HTMLInputElement>(null);
   const dataInputRef = useRef<HTMLInputElement>(null);
   const [newCategory, setNewCategory] = useState('');
   const [newPosition, setNewPosition] = useState('');
@@ -62,24 +63,43 @@ const UserSettings: React.FC<Props> = ({
       alert("Primero activa la Nube Compartida.");
       return;
     }
-    // Generamos el link actual + el parámetro project
     const baseUrl = window.location.origin + window.location.pathname;
     const inviteUrl = `${baseUrl}?project=${schoolSettings.cloudProjectKey}`;
-    
     navigator.clipboard.writeText(inviteUrl);
-    alert("🚀 ¡Link de Invitación Copiado!\n\nEnvía este link a tu colega. Al abrirlo, se conectará automáticamente a tu base de datos.");
+    alert("🚀 ¡Link de Invitación Copiado!\n\nEnvía este link a tu colega para conectarlo.");
   };
 
   const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
     setSchoolSettings(prev => ({ ...prev, [field]: value }));
   };
 
+  const addCategory = () => {
+    if (newCategory && !schoolSettings.categories.includes(newCategory)) {
+      setSchoolSettings(prev => ({ ...prev, categories: [...prev.categories, newCategory] }));
+      setNewCategory('');
+    }
+  };
+
+  const removeCategory = (cat: string) => {
+    setSchoolSettings(prev => ({ ...prev, categories: prev.categories.filter(c => c !== cat) }));
+  };
+
+  const addPosition = () => {
+    if (newPosition && !schoolSettings.positions.includes(newPosition)) {
+      setSchoolSettings(prev => ({ ...prev, positions: [...prev.positions, newPosition] }));
+      setNewPosition('');
+    }
+  };
+
+  const removePosition = (pos: string) => {
+    setSchoolSettings(prev => ({ ...prev, positions: prev.positions.filter(p => p !== pos) }));
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
-      {/* SECCIÓN MULTI-CIUDAD / COLABORACIÓN */}
+      {/* SECCIÓN MULTI-CIUDAD */}
       <div className="bg-slate-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-        
         <div className="relative z-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
             <div className="flex items-center gap-5">
@@ -98,10 +118,10 @@ const UserSettings: React.FC<Props> = ({
             ) : (
               <div className="flex flex-wrap gap-2">
                  <button onClick={generateInviteLink} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-900/40">
-                    <Share2 className="w-4 h-4" /> Generar Link de Invitación
+                    <Share2 className="w-4 h-4" /> Link Invitación
                  </button>
                  <button onClick={copyKey} className="bg-white/10 hover:bg-white/20 px-4 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-bold border border-white/10">
-                    <Copy className="w-4 h-4" /> Copiar Código
+                    <Copy className="w-4 h-4" /> Código
                  </button>
                  <button onClick={() => handleUpdateSetting('cloudProjectKey', '')} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-4 rounded-2xl transition text-xs font-bold border border-red-500/10">
                     Desvincular
@@ -113,42 +133,25 @@ const UserSettings: React.FC<Props> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] space-y-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Identificador del Proyecto Compartido</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">ID de Proyecto</label>
                 <div className="relative">
                   <input 
                     type={showKey ? "text" : "password"} 
                     value={schoolSettings.cloudProjectKey || ''}
                     placeholder="Sin código vinculado"
                     onChange={(e) => handleUpdateSetting('cloudProjectKey', e.target.value.toUpperCase())}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none"
                   />
-                  <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition">
-                    <Zap className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"><Zap className="w-4 h-4" /></button>
                 </div>
-              </div>
-              
-              <div className="flex items-start gap-3 bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20">
-                <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
-                <p className="text-[11px] text-slate-400 leading-relaxed">
-                  Para que otra persona vea tus datos, debe tener este **mismo código** en su aplicación. Los datos se sincronizarán automáticamente cada vez que alguien guarde cambios.
-                </p>
               </div>
             </div>
-
             <div className="space-y-4">
-              <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
-                <div className="bg-emerald-500/10 p-3 rounded-xl"><CheckCircle2 className="w-6 h-6 text-emerald-500" /></div>
+               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
+                <ShieldCheck className="w-6 h-6 text-emerald-500" />
                 <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Estado: Conectado</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">Tus cambios se están replicando en la nube global.</p>
-                </div>
-              </div>
-              <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
-                <div className="bg-amber-500/10 p-3 rounded-xl"><RefreshCcw className="w-6 h-6 text-amber-500" /></div>
-                <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Sincronización Inteligente</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">Verificación automática de cambios remotos cada 30 segundos.</p>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Estatus Global</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'Sincronizado' : 'Modo Solo Local'}</p>
                 </div>
               </div>
             </div>
@@ -158,48 +161,86 @@ const UserSettings: React.FC<Props> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
+          {/* DATOS DE SEDE */}
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 mb-8 uppercase tracking-tighter">
               <Building2 className="w-6 h-6 text-blue-600" /> Datos de la Sede
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre de la Sede</label>
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre Academia</label>
                 <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Dirección / Ciudad</label>
-                <input type="text" value={schoolSettings.address} onChange={(e) => handleUpdateSetting('address', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">NIT / RUT</label>
+                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Correo de Sincronización</label>
+                <input type="email" value={schoolSettings.linkedEmail || ''} onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)} placeholder="correo@ejemplo.com" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
             </div>
+          </div>
+
+          {/* GESTION DE LISTAS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                   <ListFilter className="w-4 h-4" /> Categorías
+                </h4>
+                <div className="space-y-2 mb-4">
+                   {schoolSettings.categories.map(cat => (
+                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                         <span className="text-xs font-bold text-slate-700">{cat}</span>
+                         <button onClick={() => removeCategory(cat)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                   ))}
+                </div>
+                <div className="flex gap-2">
+                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="Nueva..." />
+                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                </div>
+             </div>
+
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-6 flex items-center gap-2">
+                   <Settings className="w-4 h-4" /> Posiciones
+                </h4>
+                <div className="space-y-2 mb-4">
+                   {schoolSettings.positions.map(pos => (
+                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                         <span className="text-xs font-bold text-slate-700">{pos}</span>
+                         <button onClick={() => removePosition(pos)} className="text-red-400 hover:text-red-600"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                   ))}
+                </div>
+                <div className="flex gap-2">
+                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs" placeholder="Nueva..." />
+                   <button onClick={addPosition} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                </div>
+             </div>
           </div>
         </div>
 
         <div className="space-y-6">
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl relative overflow-hidden group">
-            <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-50 rounded-full transition-transform group-hover:scale-125"></div>
-            <div className="relative z-10">
-              <div className="flex items-center gap-3 mb-6">
-                <Usb className="w-6 h-6 text-amber-600" />
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Respaldo Manual</h3>
-              </div>
+           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl text-center">
+              <Usb className="w-8 h-8 text-amber-500 mx-auto mb-4" />
+              <h3 className="text-sm font-black uppercase mb-4">Exportación Total</h3>
               <button onClick={() => {
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
-                const downloadAnchorNode = document.createElement('a');
-                downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", `PRO_MANAGER_BACKUP_${new Date().toISOString().split('T')[0]}.json`);
-                downloadAnchorNode.click();
-              }} className="w-full flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 transition-all font-bold text-xs uppercase tracking-widest shadow-lg">
-                <span>Descargar Backup</span>
-                <FileDown className="w-5 h-5" />
+                const anchor = document.createElement('a');
+                anchor.setAttribute("href", dataStr);
+                anchor.setAttribute("download", "BACKUP_SISTEMA.json");
+                anchor.click();
+              }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase hover:bg-blue-600 transition">
+                Descargar Backup
               </button>
-            </div>
-          </div>
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-center">
-             <Database className="w-6 h-6 text-slate-300 mx-auto mb-4" />
-             <h4 className="text-xs font-black uppercase mb-1">Copia Local</h4>
-             <p className="text-[9px] text-slate-400 font-bold px-4 leading-relaxed">Los datos también se guardan en el navegador por seguridad.</p>
-          </div>
+           </div>
+           <div className="bg-blue-600 p-8 rounded-[2.5rem] text-white">
+              <Sparkles className="w-6 h-6 mb-4" />
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Soporte y Desarrollo</p>
+              <p className="text-xs font-bold mt-2 leading-relaxed">Fastsystems<br/>Jesus Maldonado Castro</p>
+           </div>
         </div>
       </div>
     </div>

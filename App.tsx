@@ -75,19 +75,16 @@ const App: React.FC = () => {
   const [squads, setSquads] = useState<MatchSquad[]>([]);
   const [users, setUsers] = useState<User[]>([{ id: '1', username: 'admin', role: 'ADMIN' }]);
 
-  // Lógica para capturar el código de proyecto desde el link (URL)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const projectKey = params.get('project');
     if (projectKey && isDataLoaded && !schoolSettings.cloudProjectKey) {
       setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
-      // Limpiar la URL para que no se vea el código permanentemente
       window.history.replaceState({}, document.title, window.location.pathname);
       alert(`✅ Se ha vinculado al proyecto: ${projectKey}`);
     }
   }, [isDataLoaded, schoolSettings.cloudProjectKey]);
 
-  // Lógica de Sincronización Remota (Simulada para multi-ciudad)
   const syncWithCloud = useCallback(async (push = false) => {
     if (!isOnline || !schoolSettings.cloudProjectKey) return;
     
@@ -216,7 +213,7 @@ const App: React.FC = () => {
     <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-10"><Trophy className="w-6 h-6 text-blue-500" /><h1 className="font-black uppercase truncate">{schoolSettings.name}</h1></div>
+          <div className="flex items-center gap-3 mb-10"><Trophy className="w-6 h-6 text-blue-500" /><h1 className="font-black uppercase truncate text-sm">{schoolSettings.name}</h1></div>
           <nav className="space-y-1 flex-1">
             {NAV_ITEMS.map((item) => (
               <button key={item.id} onClick={() => setCurrentView(item.id as AppView)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === item.id ? 'bg-blue-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
@@ -225,11 +222,11 @@ const App: React.FC = () => {
             ))}
           </nav>
           <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-             <div className="bg-white/5 p-4 rounded-2xl mb-4">
+             <div className="bg-white/5 p-4 rounded-2xl mb-4 text-left">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">PROYECTO NUBE</p>
                 <p className="text-[10px] font-bold text-blue-400 truncate">{schoolSettings.cloudProjectKey || 'SIN VINCULAR'}</p>
              </div>
-             <p className="text-[9px] font-bold text-slate-500">Desarrollo: Fastsystems</p>
+             <p className="text-[9px] font-bold text-slate-500">Desarrollo: Fastsystems Jesus Maldonado Castro</p>
           </div>
         </div>
       </aside>
@@ -242,7 +239,9 @@ const App: React.FC = () => {
               <h2 className="text-lg font-black text-slate-900 uppercase">{NAV_ITEMS.find(i => i.id === currentView)?.label}</h2>
               <div className="flex items-center gap-2">
                  <div className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></div>
-                 <span className="text-[9px] font-black uppercase text-slate-400">{isOnline ? 'Sistema en línea' : 'Modo fuera de línea'}</span>
+                 <span className="text-[9px] font-black uppercase text-slate-400">
+                    {isOnline ? `En línea: ${schoolSettings.linkedEmail || 'Sin correo'}` : 'Modo fuera de línea'}
+                 </span>
               </div>
             </div>
           </div>
