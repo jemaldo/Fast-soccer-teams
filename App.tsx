@@ -19,6 +19,7 @@ import MatchManager from './components/MatchManager';
 import TrainingManager from './components/TrainingManager';
 import ReportManager from './components/ReportManager';
 import UserSettings from './components/UserSettings';
+import { db } from './services/dbService';
 import { 
   LogOut, 
   User as UserIcon, 
@@ -36,7 +37,11 @@ import {
   ShieldCheck,
   Sparkles,
   Lock,
-  Database
+  Database,
+  Wifi,
+  WifiOff,
+  History,
+  HardDrive
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -49,52 +54,83 @@ const App: React.FC = () => {
   const [isGoogleAuthenticated, setIsGoogleAuthenticated] = useState(false);
   const [isVerifyingGoogle, setIsVerifyingGoogle] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
 
-  // Carga inicial de datos locales
-  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>(() => {
-    const saved = localStorage.getItem('schoolSettings');
-    return saved ? JSON.parse(saved) : {
-      name: 'Academia Deportiva',
-      nit: '900.000.000-1',
-      address: 'Sede Principal',
-      phone: '000-0000',
-      email: 'admin@academia.com',
-      googleDriveLinked: false
+  // Estados de datos
+  const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>({
+    name: 'Academia Deportiva',
+    nit: '900.000.000-1',
+    address: 'Sede Principal',
+    phone: '000-0000',
+    email: 'admin@academia.com',
+    googleDriveLinked: false
+  });
+  const [students, setStudents] = useState<Student[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [cashFlow, setCashFlow] = useState<CashTransaction[]>([]);
+  const [squads, setSquads] = useState<MatchSquad[]>([]);
+  const [users, setUsers] = useState<User[]>([{ id: '1', username: 'admin', role: 'ADMIN' }]);
+
+  // Carga inicial desde IndexedDB
+  useEffect(() => {
+    const loadLocalData = async () => {
+      try {
+        await db.init();
+        const [sSettings, sStudents, sTeachers, sPayments, sCash, sSquads, sUsers] = await Promise.all([
+          db.getAll('schoolSettings'),
+          db.getAll('students'),
+          db.getAll('teachers'),
+          db.getAll('payments'),
+          db.getAll('cashFlow'),
+          db.getAll('squads'),
+          db.getAll('users')
+        ]);
+
+        if (sSettings) setSchoolSettings(sSettings);
+        if (sStudents.length) setStudents(sStudents);
+        if (sTeachers.length) setTeachers(sTeachers);
+        if (sPayments.length) setPayments(sPayments);
+        if (sCash.length) setCashFlow(sCash);
+        if (sSquads.length) setSquads(sSquads);
+        if (sUsers.length) setUsers(sUsers);
+        
+        setIsDataLoaded(true);
+      } catch (e) {
+        console.error("Error al cargar base de datos local:", e);
+        setIsDataLoaded(true);
+      }
     };
-  });
+    loadLocalData();
+  }, []);
 
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem('students');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Monitor de conexión
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
-  const [teachers, setTeachers] = useState<Teacher[]>(() => {
-    const saved = localStorage.getItem('teachers');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Guardado automático en IndexedDB
+  useEffect(() => { if(isDataLoaded) db.save('schoolSettings', schoolSettings); }, [schoolSettings, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('students', students); setHasUnsavedChanges(true); } }, [students, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('teachers', teachers); setHasUnsavedChanges(true); } }, [teachers, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('payments', payments); setHasUnsavedChanges(true); } }, [payments, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('cashFlow', cashFlow); setHasUnsavedChanges(true); } }, [cashFlow, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('squads', squads); setHasUnsavedChanges(true); } }, [squads, isDataLoaded]);
+  useEffect(() => { if(isDataLoaded) { db.save('users', users); setHasUnsavedChanges(true); } }, [users, isDataLoaded]);
 
-  const [payments, setPayments] = useState<Payment[]>(() => {
-    const saved = localStorage.getItem('payments');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [cashFlow, setCashFlow] = useState<CashTransaction[]>(() => {
-    const saved = localStorage.getItem('cashFlow');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [squads, setSquads] = useState<MatchSquad[]>(() => {
-    const saved = localStorage.getItem('squads');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  const [users, setUsers] = useState<User[]>(() => {
-    const saved = localStorage.getItem('users');
-    return saved ? JSON.parse(saved) : [{ id: '1', username: 'admin', role: 'ADMIN' }];
-  });
-
-  // Verificar estado de la API de Google/Gemini
   const checkGoogleStatus = useCallback(async () => {
+    if (!isOnline) {
+      setIsVerifyingGoogle(false);
+      return;
+    }
     setIsVerifyingGoogle(true);
     try {
       const aistudio = (window as any).aistudio;
@@ -107,7 +143,7 @@ const App: React.FC = () => {
     } finally {
       setIsVerifyingGoogle(false);
     }
-  }, []);
+  }, [isOnline]);
 
   useEffect(() => {
     if (currentUser) {
@@ -115,43 +151,35 @@ const App: React.FC = () => {
     }
   }, [currentUser, checkGoogleStatus]);
 
-  // Persistencia Local
-  useEffect(() => { localStorage.setItem('schoolSettings', JSON.stringify(schoolSettings)); }, [schoolSettings]);
-  useEffect(() => { localStorage.setItem('students', JSON.stringify(students)); setHasUnsavedChanges(true); }, [students]);
-  useEffect(() => { localStorage.setItem('teachers', JSON.stringify(teachers)); setHasUnsavedChanges(true); }, [teachers]);
-  useEffect(() => { localStorage.setItem('payments', JSON.stringify(payments)); setHasUnsavedChanges(true); }, [payments]);
-  useEffect(() => { localStorage.setItem('cashFlow', JSON.stringify(cashFlow)); setHasUnsavedChanges(true); }, [cashFlow]);
-  useEffect(() => { localStorage.setItem('squads', JSON.stringify(squads)); setHasUnsavedChanges(true); }, [squads]);
-  useEffect(() => { localStorage.setItem('users', JSON.stringify(users)); setHasUnsavedChanges(true); }, [users]);
-
   const handleGoogleAuth = async () => {
+    if (!isOnline) {
+      alert("Se requiere conexión a internet para vincular con Google Cloud.");
+      return;
+    }
     setAuthError(null);
     const aistudio = (window as any).aistudio;
     if (aistudio && typeof aistudio.openSelectKey === 'function') {
       try {
         await aistudio.openSelectKey();
-        // Siguiendo las guías, asumimos éxito tras abrir el diálogo para evitar race conditions
         setIsGoogleAuthenticated(true);
         setSchoolSettings(prev => ({ ...prev, googleDriveLinked: true }));
       } catch (err: any) {
         console.error("Error linking Google:", err);
-        setAuthError("No se pudo completar la vinculación. Inténtalo de nuevo.");
+        setAuthError("Error de vinculación. Revisa tu conexión.");
       }
     }
   };
 
   const handlePushToCloud = () => {
+    if (!isOnline) {
+      alert("No puedes sincronizar sin internet. Tus datos están seguros en la base de datos local de este PC.");
+      return;
+    }
     if (!isGoogleAuthenticated) return;
     setIsSyncing(true);
     
     const allData = { 
-      schoolSettings, 
-      students, 
-      teachers, 
-      payments, 
-      cashFlow, 
-      squads, 
-      users, 
+      schoolSettings, students, teachers, payments, cashFlow, squads, users, 
       lastUpdate: new Date().toISOString() 
     };
     
@@ -163,14 +191,6 @@ const App: React.FC = () => {
       setIsSyncing(false);
     }, 800);
   };
-
-  const handlePullFromCloud = useCallback(() => {
-    const cloudDataStr = localStorage.getItem('SIMULATED_CLOUD_DATA');
-    if (cloudDataStr) {
-      const data = JSON.parse(cloudDataStr);
-      handleImportAllData(data);
-    }
-  }, []);
 
   const handleImportAllData = (data: any) => {
     if (!data || typeof data !== 'object') return;
@@ -217,6 +237,17 @@ const App: React.FC = () => {
     }
   };
 
+  if (!isDataLoaded) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className="text-center space-y-4">
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto" />
+          <p className="text-white font-black uppercase tracking-widest text-xs">Abriendo Base de Datos Local (IndexedDB)...</p>
+        </div>
+      </div>
+    );
+  }
+
   // VISTA 1: Login del Operador
   if (!currentUser) {
     return (
@@ -232,7 +263,7 @@ const App: React.FC = () => {
           <p className="text-slate-400 text-xs mb-10 font-bold uppercase tracking-widest">Sistema Pro-Manager</p>
           
           <div className="space-y-3 text-left">
-            <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2 tracking-widest">Seleccionar Perfil</label>
+            <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-2 tracking-widest">Seleccionar Perfil de Acceso</label>
             <div className="grid grid-cols-1 gap-2">
                {users.map(user => (
                  <button 
@@ -251,18 +282,20 @@ const App: React.FC = () => {
                ))}
             </div>
           </div>
-
-          <div className="mt-12 flex items-center justify-center gap-2 text-slate-300">
-             <Lock className="w-3.5 h-3.5" />
-             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Cifrado de Extremo a Extremo</span>
+          <div className="mt-8 flex flex-col gap-2 items-center justify-center">
+             <div className="flex items-center gap-2">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></div>
+                <span className="text-[10px] font-black uppercase text-slate-400">{isOnline ? 'Conexión Segura Detectada' : 'Modo Fuera de Línea Activo'}</span>
+             </div>
+             <p className="text-[9px] text-slate-300 font-medium px-4">Tus datos se guardan en el disco duro local de este navegador.</p>
           </div>
         </div>
       </div>
     );
   }
 
-  // VISTA 2: Vinculación de Google Cloud (IA & Drive)
-  if (!isGoogleAuthenticated) {
+  // VISTA 2: Vinculación de Google Cloud (Protección de Datos)
+  if (!isGoogleAuthenticated && isOnline) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
          <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-w-xl text-center border border-slate-200 relative overflow-hidden">
@@ -270,59 +303,49 @@ const App: React.FC = () => {
             
             <div className="relative z-10">
                <div className="inline-flex items-center gap-2 bg-purple-50 px-4 py-2 rounded-full text-purple-600 font-black text-[10px] uppercase tracking-widest mb-8">
-                  <Sparkles className="w-4 h-4" /> Activación Requerida
+                  <ShieldCheck className="w-4 h-4" /> Protección Anti-Pérdida
                </div>
                
-               <h2 className="text-4xl font-black text-slate-900 tracking-tighter mb-4">Conecta tu Nube</h2>
+               <h2 className="text-4xl font-black text-slate-900 tracking-tighter mb-4">Respalda tus Datos</h2>
                <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed mb-10">
-                  Para garantizar la <span className="text-blue-600 font-bold">sincronización automática</span> y el uso de la <span className="text-purple-600 font-bold">IA Deportiva</span>, vincula tu cuenta de Google Cloud.
+                  Actualmente tus datos solo viven en este PC. Vincular tu cuenta de Google te permite **recuperar todo si el PC se daña**.
                </p>
 
                <div className="space-y-4 mb-10">
                   <div className="flex items-start gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100 text-left">
                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0 border border-slate-200">
-                        <Database className="w-5 h-5 text-blue-600" />
+                        <HardDrive className="w-5 h-5 text-amber-600" />
                      </div>
                      <div>
-                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Backup Permanente</h4>
-                        <p className="text-[11px] text-slate-400">Tus datos de alumnos y finanzas se guardarán seguros en tu Google Drive.</p>
+                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Estado: Almacenamiento Local</h4>
+                        <p className="text-[11px] text-slate-400">Los datos están en tu navegador. Si el PC falla, podrías perder la información.</p>
                      </div>
                   </div>
-                  <div className="flex items-start gap-4 p-5 bg-slate-50 rounded-3xl border border-slate-100 text-left">
+                  <div className="flex items-start gap-4 p-5 bg-blue-50/50 rounded-3xl border border-blue-100 text-left">
                      <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0 border border-slate-200">
-                        <Sparkles className="w-5 h-5 text-purple-600" />
+                        <CloudLightning className="w-5 h-5 text-blue-600" />
                      </div>
                      <div>
-                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">IA Generativa</h4>
-                        <p className="text-[11px] text-slate-400">Activa los reportes inteligentes y planes de entrenamiento asistidos por IA.</p>
+                        <h4 className="text-xs font-black text-slate-800 uppercase mb-1">Sincronización en la Nube</h4>
+                        <p className="text-[11px] text-slate-400">Activa el respaldo para acceder desde cualquier PC y proteger tu academia.</p>
                      </div>
                   </div>
                </div>
 
-               {authError && (
-                 <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-xl text-xs font-bold border border-red-100 flex items-center justify-center gap-2">
-                    <AlertCircle className="w-4 h-4" /> {authError}
-                 </div>
-               )}
-
-               <button 
-                  onClick={handleGoogleAuth}
-                  disabled={isVerifyingGoogle}
-                  className="w-full bg-slate-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-600 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/20 disabled:opacity-50"
-               >
-                  {isVerifyingGoogle ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <><Chrome className="w-5 h-5" /> Iniciar con Google Cloud</>
-                  )}
-               </button>
-
-               <button 
-                  onClick={() => setCurrentUser(null)}
-                  className="mt-8 text-slate-400 font-bold text-[10px] uppercase hover:text-red-500 transition-colors tracking-widest"
-               >
-                  Cancelar y Salir
-               </button>
+               <div className="flex flex-col gap-3">
+                  <button 
+                    onClick={handleGoogleAuth}
+                    className="w-full bg-slate-900 text-white py-5 rounded-[2.5rem] font-black text-xs uppercase tracking-[0.2em] hover:bg-blue-600 transition-all flex items-center justify-center gap-3 shadow-2xl shadow-slate-900/20"
+                  >
+                    <Chrome className="w-5 h-5" /> Vincular con Google (Recomendado)
+                  </button>
+                  <button 
+                    onClick={() => setIsGoogleAuthenticated(true)}
+                    className="w-full bg-white border border-slate-200 text-slate-400 py-4 rounded-[2.5rem] font-black text-[10px] uppercase tracking-widest hover:text-slate-600 transition"
+                  >
+                    Continuar solo en local (Riesgoso)
+                  </button>
+               </div>
             </div>
          </div>
       </div>
@@ -378,7 +401,7 @@ const App: React.FC = () => {
               onClick={() => { setCurrentUser(null); setIsGoogleAuthenticated(false); }}
               className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-red-400 py-3 rounded-xl text-xs transition font-black uppercase tracking-widest"
             >
-              <LogOut className="w-4 h-4" /> SALIR
+              <LogOut className="w-4 h-4" /> CERRAR SESIÓN
             </button>
           </div>
         </div>
@@ -393,26 +416,47 @@ const App: React.FC = () => {
             >
               {isSidebarOpen ? <X /> : <Menu />}
             </button>
-            <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">
-              {NAV_ITEMS.find(i => i.id === currentView)?.label}
-            </h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-lg font-black text-slate-900 uppercase tracking-tighter">
+                {NAV_ITEMS.find(i => i.id === currentView)?.label}
+              </h2>
+              <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border transition-colors ${isOnline ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                {isOnline ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+                {isOnline ? 'En línea' : 'Desconectado'}
+              </div>
+            </div>
           </div>
           
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-2">
-               {hasUnsavedChanges ? (
-                  <button 
-                    onClick={handlePushToCloud}
-                    disabled={isSyncing}
-                    className="flex items-center gap-2 text-white font-black text-[10px] bg-blue-600 px-5 py-2.5 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50"
-                  >
-                    {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
-                    {isSyncing ? 'SINCRONIZANDO...' : 'SUBIR A LA NUBE'}
-                  </button>
+               {!isOnline ? (
+                 <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-4 py-2 rounded-full border border-amber-100" title="Tus datos se guardan solo en este computador">
+                    <Database className="w-3.5 h-3.5" /> BASE LOCAL
+                 </div>
+               ) : schoolSettings.googleDriveLinked ? (
+                 <>
+                   {hasUnsavedChanges ? (
+                      <button 
+                        onClick={handlePushToCloud}
+                        disabled={isSyncing}
+                        className="flex items-center gap-2 text-white font-black text-[10px] bg-blue-600 px-5 py-2.5 rounded-full hover:bg-blue-700 transition shadow-lg shadow-blue-200 disabled:opacity-50"
+                      >
+                        {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CloudUpload className="w-3.5 h-3.5" />}
+                        {isSyncing ? 'PROTEGIENDO...' : 'SUBIR COPIA DE SEGURIDAD'}
+                      </button>
+                   ) : (
+                      <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
+                        <CloudCheck className="w-3.5 h-3.5" /> DATOS RESPALDADOS
+                      </div>
+                   )}
+                 </>
                ) : (
-                  <div className="flex items-center gap-2 text-emerald-600 font-black text-[10px] bg-emerald-50 px-4 py-2 rounded-full border border-emerald-100">
-                    <CloudCheck className="w-3.5 h-3.5" /> NUBE PROTEGIDA
-                  </div>
+                 <button 
+                  onClick={handleGoogleAuth}
+                  className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-4 py-2 rounded-full border border-amber-200 hover:bg-amber-100 transition"
+                 >
+                   <AlertCircle className="w-3.5 h-3.5" /> ACTIVAR RESPALDO
+                 </button>
                )}
              </div>
           </div>
