@@ -10,7 +10,7 @@ import {
   User,
   SchoolSettings 
 } from './types';
-import { NAV_ITEMS } from './constants';
+import { NAV_ITEMS, CATEGORIES, POSITIONS } from './constants';
 import Dashboard from './components/Dashboard';
 import StudentManager from './components/StudentManager';
 import TeacherManager from './components/TeacherManager';
@@ -41,7 +41,9 @@ import {
   Wifi,
   WifiOff,
   History,
-  HardDrive
+  HardDrive,
+  CheckCircle2,
+  Save
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -56,6 +58,8 @@ const App: React.FC = () => {
   const [authError, setAuthError] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [lastSavedTime, setLastSavedTime] = useState<string>('');
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
 
   // Estados de datos
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>({
@@ -64,7 +68,9 @@ const App: React.FC = () => {
     address: 'Sede Principal',
     phone: '000-0000',
     email: 'admin@academia.com',
-    googleDriveLinked: false
+    googleDriveLinked: false,
+    categories: CATEGORIES,
+    positions: POSITIONS
   });
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -88,7 +94,15 @@ const App: React.FC = () => {
           db.getAll('users')
         ]);
 
-        if (sSettings) setSchoolSettings(sSettings);
+        if (sSettings) {
+          // Asegurar que existan categorías y posiciones por defecto si es una versión vieja
+          setSchoolSettings({
+            ...schoolSettings,
+            ...sSettings,
+            categories: sSettings.categories || CATEGORIES,
+            positions: sSettings.positions || POSITIONS
+          });
+        }
         if (sStudents.length) setStudents(sStudents);
         if (sTeachers.length) setTeachers(sTeachers);
         if (sPayments.length) setPayments(sPayments);
@@ -117,14 +131,23 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Función genérica para guardar con feedback visual
+  const triggerSave = useCallback(async (store: string, data: any) => {
+    if (!isDataLoaded) return;
+    await db.save(store, data);
+    setLastSavedTime(new Date().toLocaleTimeString());
+    setShowSaveConfirm(true);
+    setTimeout(() => setShowSaveConfirm(false), 2000);
+  }, [isDataLoaded]);
+
   // Guardado automático en IndexedDB
-  useEffect(() => { if(isDataLoaded) db.save('schoolSettings', schoolSettings); }, [schoolSettings, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('students', students); setHasUnsavedChanges(true); } }, [students, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('teachers', teachers); setHasUnsavedChanges(true); } }, [teachers, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('payments', payments); setHasUnsavedChanges(true); } }, [payments, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('cashFlow', cashFlow); setHasUnsavedChanges(true); } }, [cashFlow, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('squads', squads); setHasUnsavedChanges(true); } }, [squads, isDataLoaded]);
-  useEffect(() => { if(isDataLoaded) { db.save('users', users); setHasUnsavedChanges(true); } }, [users, isDataLoaded]);
+  useEffect(() => { triggerSave('schoolSettings', schoolSettings); }, [schoolSettings, triggerSave]);
+  useEffect(() => { triggerSave('students', students); setHasUnsavedChanges(true); }, [students, triggerSave]);
+  useEffect(() => { triggerSave('teachers', teachers); setHasUnsavedChanges(true); }, [teachers, triggerSave]);
+  useEffect(() => { triggerSave('payments', payments); setHasUnsavedChanges(true); }, [payments, triggerSave]);
+  useEffect(() => { triggerSave('cashFlow', cashFlow); setHasUnsavedChanges(true); }, [cashFlow, triggerSave]);
+  useEffect(() => { triggerSave('squads', squads); setHasUnsavedChanges(true); }, [squads, triggerSave]);
+  useEffect(() => { triggerSave('users', users); setHasUnsavedChanges(true); }, [users, triggerSave]);
 
   const checkGoogleStatus = useCallback(async () => {
     if (!isOnline) {
@@ -219,8 +242,8 @@ const App: React.FC = () => {
       case 'TEACHERS': return <TeacherManager teachers={teachers} setTeachers={setTeachers} payments={payments} setPayments={setPayments} schoolSettings={schoolSettings} />;
       case 'FINANCE': return <FinanceManager cashFlow={cashFlow} setCashFlow={setCashFlow} />;
       case 'MATCHES': return <MatchManager squads={squads} setSquads={setSquads} students={students} schoolSettings={schoolSettings} />;
-      case 'TRAINING': return <TrainingManager />;
-      case 'REPORTS': return <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} />;
+      case 'TRAINING': return <TrainingManager schoolSettings={schoolSettings} />;
+      case 'REPORTS': return <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} schoolSettings={schoolSettings} />;
       case 'USERS':
         return (
           <UserSettings 
@@ -294,7 +317,7 @@ const App: React.FC = () => {
     );
   }
 
-  // VISTA 2: Vinculación de Google Cloud (Protección de Datos)
+  // VISTA 2: Vinculación de Google Cloud
   if (!isGoogleAuthenticated && isOnline) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
@@ -429,6 +452,12 @@ const App: React.FC = () => {
           
           <div className="flex items-center gap-3">
              <div className="flex items-center gap-2">
+               {/* Monitor de Guardado Local */}
+               <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border transition-all duration-500 ${showSaveConfirm ? 'bg-emerald-600 text-white border-emerald-500 scale-105 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                  {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5 opacity-40" />}
+                  {showSaveConfirm ? 'CAMBIO GUARDADO EN DISCO' : `Último Guardado: ${lastSavedTime || 'Cargando...'}`}
+               </div>
+
                {!isOnline ? (
                  <div className="flex items-center gap-2 text-amber-600 font-black text-[10px] bg-amber-50 px-4 py-2 rounded-full border border-amber-100" title="Tus datos se guardan solo en este computador">
                     <Database className="w-3.5 h-3.5" /> BASE LOCAL

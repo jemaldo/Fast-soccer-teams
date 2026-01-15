@@ -1,7 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { Student, Payment, BloodType, SchoolSettings } from '../types';
-import { CATEGORIES, POSITIONS } from '../constants';
 import { 
   Plus, 
   Search, 
@@ -213,9 +212,9 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
           bmi: calculateBMI(weight, height), 
           address: row.Direccion || "", 
           phone: row.Telefono || "",
-          observations: row.Observaciones || "", 
-          category: row.Categoria || CATEGORIES[0],
-          position: row.Posicion || POSITIONS[0], 
+          observations: row.Observations || "", 
+          category: row.Categoria || schoolSettings.categories[0],
+          position: row.Posicion || schoolSettings.positions[0], 
           entryDate: row.FechaIngreso || new Date().toISOString().split('T')[0],
           isPaidUp: row.PazYSalvo === "SI",
           parents: [{ 
@@ -268,7 +267,7 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
             </div>
             <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="pl-4 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none">
               <option value="">Todas las categorías</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {schoolSettings.categories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <select value={paidStatusFilter} onChange={(e) => setPaidStatusFilter(e.target.value as any)} className="pl-4 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none">
               <option value="ALL">Todos los estados</option>
@@ -397,14 +396,14 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
                     <div className="space-y-3">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Categoría Asignada</label>
-                        <select name="category" defaultValue={selectedStudent?.category} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
-                          {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                        <select name="category" defaultValue={selectedStudent?.category || schoolSettings.categories[0]} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                          {schoolSettings.categories.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Posición en el Campo</label>
-                        <select name="position" defaultValue={selectedStudent?.position} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
-                          {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                        <select name="position" defaultValue={selectedStudent?.position || schoolSettings.positions[0]} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                          {schoolSettings.positions.map(p => <option key={p} value={p}>{p}</option>)}
                         </select>
                       </div>
                     </div>

@@ -22,7 +22,10 @@ import {
   Usb,
   HardDrive,
   Save,
-  Database
+  Database,
+  Plus,
+  ListFilter,
+  Check
 } from 'lucide-react';
 
 interface Props {
@@ -48,6 +51,9 @@ const UserSettings: React.FC<Props> = ({
   const [isVerifying, setIsVerifying] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [apiStatus, setApiStatus] = useState<'IDLE' | 'CONNECTED' | 'ERROR'>('IDLE');
+  
+  const [newCategory, setNewCategory] = useState('');
+  const [newPosition, setNewPosition] = useState('');
 
   useEffect(() => {
     const checkKey = async () => {
@@ -80,8 +86,30 @@ const UserSettings: React.FC<Props> = ({
     }
   };
 
-  const handleUpdateSetting = (field: keyof SchoolSettings, value: string) => {
+  const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
     setSchoolSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddCategory = () => {
+    if (!newCategory.trim()) return;
+    if (schoolSettings.categories.includes(newCategory)) return;
+    handleUpdateSetting('categories', [...schoolSettings.categories, newCategory.trim()]);
+    setNewCategory('');
+  };
+
+  const handleRemoveCategory = (cat: string) => {
+    handleUpdateSetting('categories', schoolSettings.categories.filter(c => c !== cat));
+  };
+
+  const handleAddPosition = () => {
+    if (!newPosition.trim()) return;
+    if (schoolSettings.positions.includes(newPosition)) return;
+    handleUpdateSetting('positions', [...schoolSettings.positions, newPosition.trim()]);
+    setNewPosition('');
+  };
+
+  const handleRemovePosition = (pos: string) => {
+    handleUpdateSetting('positions', schoolSettings.positions.filter(p => p !== pos));
   };
 
   const verifyAccountStatus = async () => {
@@ -109,20 +137,19 @@ const UserSettings: React.FC<Props> = ({
   };
 
   const handleExportData = () => {
-    // Empaquetamos todo el estado actual para la exportación manual
     const backupData = {
       ...allData,
       exportInfo: {
         date: new Date().toISOString(),
         origin: schoolSettings.name,
-        version: "2.0-offline-ready"
+        version: "2.1-dynamic-lists"
       }
     };
     
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
     const downloadAnchorNode = document.createElement('a');
     downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `BACKUP_USB_${schoolSettings.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`);
+    downloadAnchorNode.setAttribute("download", `RESPALDO_${schoolSettings.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.json`);
     document.body.appendChild(downloadAnchorNode);
     downloadAnchorNode.click();
     downloadAnchorNode.remove();
@@ -135,17 +162,16 @@ const UserSettings: React.FC<Props> = ({
       reader.onload = (event) => {
         try {
           const json = JSON.parse(event.target?.result as string);
-          // Validación básica de integridad
           if (json.students && json.schoolSettings) {
-            if (confirm("⚠️ ATENCIÓN: Esta acción reemplazará TODOS los datos actuales en este PC por los del archivo de respaldo. ¿Deseas continuar?")) {
+            if (confirm("⚠️ ATENCIÓN: Esta acción reemplazará TODOS los datos actuales por los del archivo. ¿Continuar?")) {
               onImportData(json);
-              alert("✅ Datos importados con éxito. La base de datos local ha sido actualizada.");
+              alert("✅ Datos importados con éxito.");
             }
           } else {
-            alert("❌ Error: El archivo no parece ser un respaldo válido de la aplicación.");
+            alert("❌ Archivo de respaldo no válido.");
           }
         } catch (error) {
-          alert("❌ Error: No se pudo leer el archivo. Asegúrate de que es el .json generado por la app.");
+          alert("❌ Error al leer el archivo.");
         }
       };
       reader.readAsText(file);
@@ -188,11 +214,11 @@ const UserSettings: React.FC<Props> = ({
                 <div className="bg-amber-100 p-2.5 rounded-xl text-amber-600">
                   <Usb className="w-6 h-6" />
                 </div>
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Transferencia USB</h3>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Respaldo USB</h3>
               </div>
               
               <p className="text-xs text-slate-500 mb-8 leading-relaxed">
-                Usa estas opciones para mover tus datos a otro computador **sin necesidad de internet**.
+                Mueve tus datos a otro computador **sin necesidad de internet**.
               </p>
 
               <div className="space-y-3">
@@ -218,12 +244,6 @@ const UserSettings: React.FC<Props> = ({
                   <FileUp className="w-5 h-5 group-hover/btn:-translate-y-0.5 transition" />
                 </button>
                 <input type="file" ref={dataInputRef} onChange={handleImportData} accept=".json" className="hidden" />
-              </div>
-
-              <div className="mt-8 p-4 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                <p className="text-[10px] text-slate-400 font-bold leading-relaxed text-center italic">
-                  "Genera un archivo, pásalo a una memoria USB y cárgalo en el otro PC."
-                </p>
               </div>
             </div>
           </div>
@@ -288,16 +308,65 @@ const UserSettings: React.FC<Props> = ({
                     <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Sede Principal</label>
-                    <input type="text" value={schoolSettings.address} onChange={(e) => handleUpdateSetting('address', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* LISTAS DEL SISTEMA (Categorías y Posiciones) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 mb-6">
+                <ListFilter className="w-5 h-5 text-blue-600" /> Categorías
+              </h3>
+              <div className="flex gap-2 mb-6">
+                <input 
+                  type="text" 
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="Nueva categoría..."
+                  className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
+                />
+                <button onClick={handleAddCategory} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {schoolSettings.categories.map(cat => (
+                  <div key={cat} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[10px] font-black uppercase tracking-wider border border-blue-100 group">
+                    {cat}
+                    <button onClick={() => handleRemoveCategory(cat)} className="hover:text-red-600">
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Teléfono Contacto</label>
-                    <input type="text" value={schoolSettings.phone} onChange={(e) => handleUpdateSetting('phone', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h3 className="text-lg font-black text-slate-800 flex items-center gap-3 mb-6">
+                <Sparkles className="w-5 h-5 text-emerald-600" /> Posiciones
+              </h3>
+              <div className="flex gap-2 mb-6">
+                <input 
+                  type="text" 
+                  value={newPosition}
+                  onChange={(e) => setNewPosition(e.target.value)}
+                  placeholder="Nueva posición..."
+                  className="flex-1 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold outline-none"
+                />
+                <button onClick={handleAddPosition} className="bg-emerald-600 text-white p-2 rounded-xl hover:bg-emerald-700 transition">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {schoolSettings.positions.map(pos => (
+                  <div key={pos} className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-100 group">
+                    {pos}
+                    <button onClick={() => handleRemovePosition(pos)} className="hover:text-red-600">
+                      <X className="w-3 h-3" />
+                    </button>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>

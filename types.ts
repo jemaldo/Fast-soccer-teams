@@ -95,6 +95,8 @@ export interface SchoolSettings {
   phone: string;
   email: string;
   logo?: string;
+  categories: string[];
+  positions: string[];
   // Cloud Sync Settings
   googleDriveLinked?: boolean;
   linkedEmail?: string;
