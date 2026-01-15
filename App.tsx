@@ -44,7 +44,8 @@ import {
   HardDrive,
   CheckCircle2,
   Save,
-  Mail
+  Mail,
+  Code2
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -307,6 +308,10 @@ const App: React.FC = () => {
                ))}
             </div>
           </div>
+          <div className="mt-10 pt-6 border-t border-slate-100">
+            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Desarrollo:</p>
+            <p className="text-[11px] font-bold text-slate-600 mt-1">Fastsystems Jesus Maldonado Castro</p>
+          </div>
         </div>
       </div>
     );
@@ -316,7 +321,7 @@ const App: React.FC = () => {
   if (!isGoogleAuthenticated && isOnline) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-         <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-w-xl text-center border border-slate-200 relative overflow-hidden">
+         <div className="bg-white p-12 rounded-[3.5rem] shadow-2xl w-full max-xl text-center border border-slate-200 relative overflow-hidden">
             <div className="absolute -top-24 -right-24 w-64 h-64 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
             
             <div className="relative z-10">
@@ -395,10 +400,16 @@ const App: React.FC = () => {
             </div>
             <button 
               onClick={() => { setCurrentUser(null); setIsGoogleAuthenticated(false); }}
-              className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-red-400 py-3 rounded-xl text-xs transition font-black uppercase tracking-widest"
+              className="w-full flex items-center justify-center gap-2 text-slate-500 hover:text-red-400 py-3 rounded-xl text-xs transition font-black uppercase tracking-widest mb-6"
             >
               <LogOut className="w-4 h-4" /> CERRAR SESIÓN
             </button>
+
+            {/* Copyright Sidebar */}
+            <div className="bg-white/5 p-4 rounded-2xl border border-white/10 text-center">
+              <p className="text-[9px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">Desarrollo:</p>
+              <p className="text-[10px] font-bold text-slate-300 leading-tight">Fastsystems Jesus Maldonado Castro</p>
+            </div>
           </div>
         </div>
       </aside>
@@ -451,8 +462,19 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto p-4 md:p-8">
-          {renderView()}
+        <section className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col">
+          <div className="flex-1">
+            {renderView()}
+          </div>
+          
+          {/* Copyright Footer Main */}
+          <footer className="mt-12 py-8 border-t border-slate-200 flex flex-col items-center justify-center gap-2 opacity-50 no-print">
+            <div className="flex items-center gap-2">
+              <Code2 className="w-4 h-4 text-slate-400" />
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600">Pro-Manager Enterprise System</p>
+            </div>
+            <p className="text-[11px] font-bold text-slate-500">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
+          </footer>
         </section>
       </main>
     </div>
