@@ -36,8 +36,7 @@ import {
   WifiOff
 } from 'lucide-react';
 
-const APP_VERSION = "V2.9-Ultra-Sync";
-// Endpoint de respaldo más robusto
+const APP_VERSION = "V3.0-Lite-Sync";
 const CLOUD_API_BASE = 'https://kvdb.io/A9S6J7uY2n9u2n9u2n9u2n/';
 
 const App: React.FC = () => {
@@ -48,8 +47,6 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
-  const [lastSavedTime, setLastSavedTime] = useState<string>('');
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [remoteUpdateAvailable, setRemoteUpdateAvailable] = useState(false);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -74,10 +71,7 @@ const App: React.FC = () => {
 
   const syncWithCloud = useCallback(async (push = false, forceKey?: string) => {
     const key = forceKey || schoolSettings.cloudProjectKey;
-    if (!navigator.onLine) {
-      setSyncError("Sin internet");
-      return;
-    }
+    if (!navigator.onLine) { setSyncError("Sin internet"); return; }
     if (!key) return;
     
     setIsSyncing(true);
@@ -86,35 +80,34 @@ const App: React.FC = () => {
     
     try {
       if (push) {
+        // LITE SYNC: Removemos fotos antes de subir para evitar el error de "PESADO"
+        const liteStudents = students.map(({ photo, ...rest }) => rest);
+        const liteTeachers = teachers.map(({ photo, resumeUrl, ...rest }) => rest);
+
         const allData = { 
-          schoolSettings, students, teachers, payments, cashFlow, squads, users,
+          schoolSettings, 
+          students: liteStudents, 
+          teachers: liteTeachers, 
+          payments, 
+          cashFlow, 
+          squads, 
+          users,
           lastGlobalUpdate: new Date().toISOString()
         };
-        const payload = JSON.stringify(allData);
-        
-        // Alerta de tamaño (limite de 64KB en kvdb gratuito aprox)
-        if (payload.length > 60000) {
-          console.warn("Payload muy grande:", payload.length);
-          // Opcional: Podríamos limpiar las fotos para sincronizar solo texto
-        }
 
         const response = await fetch(CLOUD_URL, {
           method: 'POST',
-          mode: 'cors',
           headers: { 'Content-Type': 'text/plain' },
-          body: payload
+          body: JSON.stringify(allData)
         });
 
-        if (!response.ok) {
-          const errText = await response.text();
-          throw new Error(errText || "Error del servidor");
-        }
+        if (!response.ok) throw new Error("Servidor lleno o error de red");
         
         setHasUnsavedChanges(false);
         setSchoolSettings(prev => ({ ...prev, lastSyncTimestamp: allData.lastGlobalUpdate }));
-        alert("✅ ¡ÉXITO! Datos sincronizados en la nube.");
+        alert("✅ NUBE ACTUALIZADA (Modo Ligero).\nLos datos vitales están sincronizados. Las fotos permanecen en este equipo por seguridad.");
       } else {
-        const response = await fetch(CLOUD_URL, { mode: 'cors' });
+        const response = await fetch(CLOUD_URL);
         if (response.ok) {
           const cloudData = await response.json();
           if (cloudData.lastGlobalUpdate !== schoolSettings.lastSyncTimestamp) {
@@ -124,28 +117,15 @@ const App: React.FC = () => {
               setRemoteUpdateAvailable(true);
             }
           }
-        } else if (response.status === 404) {
-           setSyncError("Proyecto vacío en nube");
         }
       }
     } catch (e: any) {
-      console.error("Error de sincronización:", e);
-      setSyncError(e.message || "Fallo de conexión");
-      if (push) alert("❌ Error al subir: Comprueba tu conexión o reduce el número de fotos.");
+      setSyncError("Fallo de conexión");
+      if (push) alert("❌ Error de Nube: Posiblemente los datos son demasiado pesados para el servidor gratuito.");
     } finally {
       setTimeout(() => setIsSyncing(false), 800);
     }
   }, [schoolSettings, students, teachers, payments, cashFlow, squads, users]);
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const projectKey = params.get('project');
-    if (projectKey && isDataLoaded) {
-      setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
-      window.history.replaceState({}, document.title, window.location.pathname);
-      syncWithCloud(false, projectKey);
-    }
-  }, [isDataLoaded, syncWithCloud]);
 
   useEffect(() => {
     const loadLocalData = async () => {
@@ -173,26 +153,31 @@ const App: React.FC = () => {
   const triggerSave = useCallback(async (store: string, data: any) => {
     if (!isDataLoaded) return;
     await db.save(store, data);
-    setLastSavedTime(new Date().toLocaleTimeString());
-    setShowSaveConfirm(true);
-    setTimeout(() => setShowSaveConfirm(false), 2000);
+    if (store !== 'schoolSettings') setHasUnsavedChanges(true);
   }, [isDataLoaded]);
 
   useEffect(() => { triggerSave('schoolSettings', schoolSettings); }, [schoolSettings, triggerSave]);
-  useEffect(() => { triggerSave('students', students); setHasUnsavedChanges(true); }, [students, triggerSave]);
-  useEffect(() => { triggerSave('teachers', teachers); setHasUnsavedChanges(true); }, [teachers, triggerSave]);
-  useEffect(() => { triggerSave('payments', payments); setHasUnsavedChanges(true); }, [payments, triggerSave]);
-  useEffect(() => { triggerSave('cashFlow', cashFlow); setHasUnsavedChanges(true); }, [cashFlow, triggerSave]);
-  useEffect(() => { triggerSave('squads', squads); setHasUnsavedChanges(true); }, [squads, triggerSave]);
+  useEffect(() => { triggerSave('students', students); }, [students, triggerSave]);
+  useEffect(() => { triggerSave('teachers', teachers); }, [teachers, triggerSave]);
+  useEffect(() => { triggerSave('payments', payments); }, [payments, triggerSave]);
+  useEffect(() => { triggerSave('cashFlow', cashFlow); }, [cashFlow, triggerSave]);
+  useEffect(() => { triggerSave('squads', squads); }, [squads, triggerSave]);
 
   const handleImportAllData = (data: any) => {
     if (!data) return;
-    if (data.students) setStudents(data.students);
+    if (data.students) {
+      // Al importar de la nube, preservamos las fotos locales si ya existen
+      setStudents(prev => {
+        return data.students.map((newS: Student) => {
+          const localS = prev.find(ls => ls.id === newS.id);
+          return { ...newS, photo: localS?.photo || newS.photo };
+        });
+      });
+    }
     if (data.teachers) setTeachers(data.teachers);
     if (data.payments) setPayments(data.payments);
     if (data.cashFlow) setCashFlow(data.cashFlow);
     if (data.squads) setSquads(data.squads);
-    if (data.users) setUsers(data.users);
     if (data.schoolSettings) {
       setSchoolSettings(prev => ({
         ...prev,
@@ -207,11 +192,11 @@ const App: React.FC = () => {
     setIsSyncing(true);
     const CLOUD_URL = `${CLOUD_API_BASE}${schoolSettings.cloudProjectKey}`;
     try {
-      const response = await fetch(CLOUD_URL, { mode: 'cors' });
+      const response = await fetch(CLOUD_URL);
       const data = await response.json();
       handleImportAllData(data);
       setRemoteUpdateAvailable(false);
-      alert("✅ Datos actualizados correctamente.");
+      alert("✅ Datos actualizados desde la nube.");
     } catch (e) {
       alert("Error al descargar.");
     } finally {
@@ -271,7 +256,7 @@ const App: React.FC = () => {
                 {isOnline ? <Wifi className="w-3 h-3 text-emerald-500" /> : <WifiOff className="w-3 h-3 text-red-500" />}
                 <p className="text-[9px] font-black text-blue-400">{APP_VERSION}</p>
              </div>
-             <p className="text-[9px] font-bold text-slate-500 leading-tight">Desarrollo: Fastsystems<br/>Jesus Maldonado Castro</p>
+             <p className="text-[9px] font-bold text-slate-500 leading-tight">Fastsystems Jesus Maldonado Castro</p>
           </div>
         </div>
       </aside>
@@ -280,7 +265,7 @@ const App: React.FC = () => {
         <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
-            <h2 className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight truncate max-w-[120px] md:max-w-none">
+            <h2 className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight truncate">
               {NAV_ITEMS.find(i => i.id === currentView)?.label}
             </h2>
           </div>
@@ -288,20 +273,19 @@ const App: React.FC = () => {
           <div className="flex items-center gap-2">
              {remoteUpdateAvailable && (
                <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2 rounded-full text-[9px] font-black uppercase animate-bounce shadow-lg">
-                 <Zap className="w-3 h-3" /> DESCARGAR CAMBIOS
+                 <Zap className="w-3 h-3" /> CAMBIOS DISPONIBLES
                </button>
              )}
              
              {schoolSettings.cloudProjectKey && isOnline && (
-               <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white animate-pulse' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
-                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3 h-3" /> : <CloudCheck className="w-3 h-3" />)}
-                  <span className="hidden md:inline">{isSyncing ? 'CONECTANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}</span>
-                  <span className="md:hidden">{hasUnsavedChanges ? 'SUBIR' : 'OK'}</span>
+               <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                  {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudUpload className="w-3 h-3" />}
+                  <span>{isSyncing ? 'SINCRONIZANDO...' : (hasUnsavedChanges ? 'SUBIR A NUBE' : 'NUBE AL DÍA')}</span>
                 </button>
              )}
 
              {syncError && (
-               <div className="flex items-center gap-1 bg-red-100 text-red-600 px-3 py-1.5 rounded-full" title={syncError}>
+               <div className="bg-red-100 text-red-600 px-3 py-1.5 rounded-full flex items-center gap-1">
                  <AlertCircle className="w-3 h-3" />
                  <span className="text-[8px] font-black uppercase">{syncError}</span>
                </div>

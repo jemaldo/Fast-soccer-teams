@@ -20,17 +20,40 @@ async function ensureApiKey() {
 
 export async function generateTrainingProgram(category: string, focus: string) {
   try {
+    // Ensure API key is selected before making call
     await ensureApiKey();
+    // Create new instance to use the most recent API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
-    // Configuración ultra-simple para evitar errores de cuota o tokens
+    // Upgraded to gemini-3-pro-preview for advanced reasoning in training plans
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Eres un entrenador de fútbol Pro. Crea un plan semanal para categoría ${category}. Enfoque: ${focus}.
-      Estructura JSON: { "sessions": [ { "day": "Día", "title": "Título", "activities": ["Actividad 1", "Actividad 2"], "duration": "90 min" } ] }`,
+      model: "gemini-3-pro-preview",
+      contents: `Eres un entrenador de fútbol Pro. Crea un plan semanal para categoría ${category}. Enfoque: ${focus}.`,
       config: {
         responseMimeType: "application/json",
-        // No añadimos thinkingBudget ni maxTokens para máxima compatibilidad
+        // Using responseSchema for better structured output reliability
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            sessions: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  day: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  activities: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                  },
+                  duration: { type: Type.STRING }
+                },
+                required: ["day", "title", "activities", "duration"]
+              }
+            }
+          },
+          required: ["sessions"]
+        }
       }
     });
 
@@ -39,7 +62,8 @@ export async function generateTrainingProgram(category: string, focus: string) {
     return JSON.parse(cleanedText);
   } catch (error: any) {
     console.error("Gemini Error:", error);
-    if (error.message?.includes("entity was not found") || error.message?.includes("API key")) {
+    // Handle API key selection reset if requested entity not found
+    if (error.message?.includes("Requested entity was not found") || error.message?.includes("API key")) {
       const aistudio = (window as any).aistudio;
       if (aistudio) await aistudio.openSelectKey();
     }
@@ -49,14 +73,19 @@ export async function generateTrainingProgram(category: string, focus: string) {
 
 export async function analyzeFinancialState(transactions: any[]) {
   try {
+    // Ensure API key is selected before making call
+    await ensureApiKey();
+    // Create new instance to use the most recent API key
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const summary = JSON.stringify(transactions.slice(-10)); // Solo las últimas 10 para no saturar
+    const summary = JSON.stringify(transactions.slice(-10));
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Analiza estas finanzas y da 3 consejos cortos: ${summary}`,
     });
+    // Accessing .text property directly as per guidelines
     return response.text;
-  } catch (error) {
+  } catch (error: any) {
+    console.error("Financial analysis error:", error);
     return "Análisis no disponible actualmente.";
   }
 }
