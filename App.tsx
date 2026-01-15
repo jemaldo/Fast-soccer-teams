@@ -21,27 +21,20 @@ import ReportManager from './components/ReportManager';
 import UserSettings from './components/UserSettings';
 import { db } from './services/dbService';
 import { 
-  LogOut, 
-  User as UserIcon, 
   Menu, 
-  X, 
   Trophy, 
-  RefreshCw, 
-  AlertCircle, 
   CloudCheck, 
   CloudUpload, 
   Loader2,
-  Chrome,
   ArrowRight,
-  ShieldCheck,
   HardDrive,
   CheckCircle2,
-  Mail,
-  Code2,
-  Globe,
   Zap,
-  Share2
+  Globe
 } from 'lucide-react';
+
+// URL de la base de datos remota para sincronización (Bucket único para Fastsystems)
+const CLOUD_API_BASE = 'https://kvdb.io/A9S6J7uY2n9u2n9u2n9u2n/';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<AppView>('DASHBOARD');
@@ -55,7 +48,6 @@ const App: React.FC = () => {
   const [showSaveConfirm, setShowSaveConfirm] = useState(false);
   const [remoteUpdateAvailable, setRemoteUpdateAvailable] = useState(false);
 
-  // Estados de datos
   const [schoolSettings, setSchoolSettings] = useState<SchoolSettings>({
     name: 'Academia Deportiva',
     nit: '900.000.000-1',
@@ -75,62 +67,63 @@ const App: React.FC = () => {
   const [squads, setSquads] = useState<MatchSquad[]>([]);
   const [users, setUsers] = useState<User[]>([{ id: '1', username: 'admin', role: 'ADMIN' }]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const projectKey = params.get('project');
-    if (projectKey && isDataLoaded && !schoolSettings.cloudProjectKey) {
-      setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
-      window.history.replaceState({}, document.title, window.location.pathname);
-      alert(`✅ Se ha vinculado al proyecto: ${projectKey}`);
-    }
-  }, [isDataLoaded, schoolSettings.cloudProjectKey]);
-
-  const syncWithCloud = useCallback(async (push = false) => {
-    if (!isOnline || !schoolSettings.cloudProjectKey) return;
+  // Función para Sincronización Remota REAL (Internet)
+  const syncWithCloud = useCallback(async (push = false, forceKey?: string) => {
+    const key = forceKey || schoolSettings.cloudProjectKey;
+    if (!navigator.onLine || !key) return;
     
     setIsSyncing(true);
-    const CLOUD_STORAGE_KEY = `CLOUD_STORAGE_${schoolSettings.cloudProjectKey}`;
+    const CLOUD_URL = `${CLOUD_API_BASE}${key}`;
     
     try {
       if (push) {
+        // ENVIAR DATOS A LA NUBE
         const allData = { 
           schoolSettings, students, teachers, payments, cashFlow, squads, users,
           lastGlobalUpdate: new Date().toISOString()
         };
-        localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(allData));
+        await fetch(CLOUD_URL, {
+          method: 'POST',
+          body: JSON.stringify(allData)
+        });
         setHasUnsavedChanges(false);
+        setSchoolSettings(prev => ({ ...prev, lastSyncTimestamp: allData.lastGlobalUpdate }));
       } else {
-        const rawCloudData = localStorage.getItem(CLOUD_STORAGE_KEY);
-        if (rawCloudData) {
-          const cloudData = JSON.parse(rawCloudData);
+        // CONSULTAR DATOS DE LA NUBE
+        const response = await fetch(CLOUD_URL);
+        if (response.ok) {
+          const cloudData = await response.json();
           if (cloudData.lastGlobalUpdate !== schoolSettings.lastSyncTimestamp) {
-            setRemoteUpdateAvailable(true);
+            // Si venimos de un link de invitación, aplicamos automáticamente
+            if (forceKey) {
+              handleImportAllData(cloudData);
+            } else {
+              setRemoteUpdateAvailable(true);
+            }
           }
         }
       }
     } catch (e) {
-      console.error("Error en sincronización remota", e);
+      console.error("Fallo en conexión remota:", e);
     } finally {
-      setTimeout(() => setIsSyncing(false), 500);
+      setTimeout(() => setIsSyncing(false), 800);
     }
-  }, [isOnline, schoolSettings, students, teachers, payments, cashFlow, squads, users]);
+  }, [schoolSettings, students, teachers, payments, cashFlow, squads, users]);
 
+  // Manejo de invitaciones por Link
   useEffect(() => {
-    const interval = setInterval(() => syncWithCloud(false), 30000);
-    return () => clearInterval(interval);
-  }, [syncWithCloud]);
-
-  const applyRemoteUpdate = () => {
-    const CLOUD_STORAGE_KEY = `CLOUD_STORAGE_${schoolSettings.cloudProjectKey}`;
-    const rawCloudData = localStorage.getItem(CLOUD_STORAGE_KEY);
-    if (rawCloudData) {
-      const data = JSON.parse(rawCloudData);
-      handleImportAllData(data);
-      setRemoteUpdateAvailable(false);
-      alert("✅ Datos sincronizados con la otra ciudad.");
+    const params = new URLSearchParams(window.location.search);
+    const projectKey = params.get('project');
+    if (projectKey && isDataLoaded) {
+      setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
+      window.history.replaceState({}, document.title, window.location.pathname);
+      // Forzar descarga inmediata al detectar link nuevo
+      syncWithCloud(false, projectKey);
+      alert(`🚀 Conectado a la Nube: ${projectKey}. Descargando datos...`);
     }
-  };
+  }, [isDataLoaded, syncWithCloud]);
 
+  // Ciclo de vida de carga inicial
   useEffect(() => {
     const loadLocalData = async () => {
       try {
@@ -155,6 +148,7 @@ const App: React.FC = () => {
     loadLocalData();
   }, []);
 
+  // Guardado Automático Local (IndexedDB)
   const triggerSave = useCallback(async (store: string, data: any) => {
     if (!isDataLoaded) return;
     await db.save(store, data);
@@ -187,6 +181,38 @@ const App: React.FC = () => {
     }
     setHasUnsavedChanges(false);
   };
+
+  const applyRemoteUpdate = async () => {
+    setIsSyncing(true);
+    const CLOUD_URL = `${CLOUD_API_BASE}${schoolSettings.cloudProjectKey}`;
+    try {
+      const response = await fetch(CLOUD_URL);
+      const data = await response.json();
+      handleImportAllData(data);
+      setRemoteUpdateAvailable(false);
+      alert("✅ Datos actualizados desde la nube.");
+    } catch (e) {
+      alert("Error al descargar actualización.");
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    const interval = setInterval(() => syncWithCloud(false), 45000);
+    return () => clearInterval(interval);
+  }, [syncWithCloud]);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   if (!isDataLoaded) return <div className="min-h-screen flex items-center justify-center bg-slate-900"><Loader2 className="w-12 h-12 text-blue-500 animate-spin" /></div>;
 
@@ -226,7 +252,10 @@ const App: React.FC = () => {
           <div className="mt-auto pt-6 border-t border-slate-800 text-center">
              <div className="bg-white/5 p-4 rounded-2xl mb-4 text-left border border-white/5">
                 <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">PROYECTO NUBE</p>
-                <p className="text-[10px] font-bold text-blue-400 truncate">{schoolSettings.cloudProjectKey || 'SIN VINCULAR'}</p>
+                <div className="flex items-center gap-2">
+                   <Globe className="w-3 h-3 text-blue-400" />
+                   <p className="text-[10px] font-bold text-blue-400 truncate">{schoolSettings.cloudProjectKey || 'SIN VINCULAR'}</p>
+                </div>
              </div>
              <p className="text-[9px] font-bold text-slate-500 leading-tight">Desarrollo: Fastsystems<br/>Jesus Maldonado Castro</p>
           </div>
@@ -251,28 +280,27 @@ const App: React.FC = () => {
           <div className="flex items-center gap-3">
              {remoteUpdateAvailable && (
                <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-full text-[10px] font-black uppercase animate-bounce shadow-lg">
-                 <Zap className="w-3.5 h-3.5" /> Hay cambios remotos
+                 <Zap className="w-3.5 h-3.5" /> Hay cambios en la nube
                </button>
              )}
              
              <div className="flex items-center gap-2">
                <div className={`flex items-center gap-2 text-[10px] font-black uppercase px-4 py-2 rounded-full border transition-all ${showSaveConfirm ? 'bg-emerald-600 text-white border-emerald-500 scale-105 shadow-lg' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
                   {showSaveConfirm ? <CheckCircle2 className="w-3.5 h-3.5" /> : <HardDrive className="w-3.5 h-3.5 opacity-40" />}
-                  {showSaveConfirm ? 'GUARDADO LOCAL' : `Vigencia: ${lastSavedTime || '---'}`}
+                  {showSaveConfirm ? 'GUARDADO LOCAL' : `Caja: ${lastSavedTime || '---'}`}
                </div>
 
                {schoolSettings.cloudProjectKey && isOnline && (
                  <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[10px] px-5 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-blue-200' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                     {isSyncing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : (hasUnsavedChanges ? <CloudUpload className="w-3.5 h-3.5" /> : <CloudCheck className="w-3.5 h-3.5" />)}
-                    {isSyncing ? 'SINCRONIZANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}
+                    {isSyncing ? 'CONECTANDO...' : (hasUnsavedChanges ? 'SUBIR A LA NUBE' : 'NUBE AL DÍA')}
                   </button>
                )}
              </div>
           </div>
         </header>
 
-        <section className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col">
-          <div className="flex-1">
+        <section className="flex-1 overflow-y-auto p-4 md:p-8">
             {currentView === 'DASHBOARD' && <Dashboard schoolSettings={schoolSettings} students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} />}
             {currentView === 'STUDENTS' && <StudentManager students={students} setStudents={setStudents} payments={payments} setPayments={setPayments} schoolSettings={schoolSettings} teachers={teachers} />}
             {currentView === 'TEACHERS' && <TeacherManager teachers={teachers} setTeachers={setTeachers} payments={payments} setPayments={setPayments} schoolSettings={schoolSettings} />}
@@ -281,11 +309,11 @@ const App: React.FC = () => {
             {currentView === 'TRAINING' && <TrainingManager />}
             {currentView === 'REPORTS' && <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} schoolSettings={schoolSettings} />}
             {currentView === 'USERS' && <UserSettings users={users} setUsers={setUsers} currentUser={currentUser} schoolSettings={schoolSettings} setSchoolSettings={setSchoolSettings} allData={{ schoolSettings, students, teachers, payments, cashFlow, squads, users }} onImportData={handleImportAllData} />}
-          </div>
-          <footer className="mt-12 py-8 border-t border-slate-200 text-center no-print">
-            <p className="text-[11px] font-bold text-slate-500 opacity-60 uppercase tracking-widest">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
-          </footer>
         </section>
+
+        <footer className="mt-auto py-6 border-t border-slate-200 text-center no-print">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">© 2025 Desarrollo: Fastsystems Jesus Maldonado Castro</p>
+        </footer>
       </main>
     </div>
   );
