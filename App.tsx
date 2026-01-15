@@ -39,7 +39,8 @@ import {
   Mail,
   Code2,
   Globe,
-  Zap
+  Zap,
+  Share2
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -48,7 +49,6 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [isGoogleAuthenticated, setIsGoogleAuthenticated] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [isDataLoaded, setIsDataLoaded] = useState(false);
   const [lastSavedTime, setLastSavedTime] = useState<string>('');
@@ -75,6 +75,18 @@ const App: React.FC = () => {
   const [squads, setSquads] = useState<MatchSquad[]>([]);
   const [users, setUsers] = useState<User[]>([{ id: '1', username: 'admin', role: 'ADMIN' }]);
 
+  // Lógica para capturar el código de proyecto desde el link (URL)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const projectKey = params.get('project');
+    if (projectKey && isDataLoaded && !schoolSettings.cloudProjectKey) {
+      setSchoolSettings(prev => ({ ...prev, cloudProjectKey: projectKey }));
+      // Limpiar la URL para que no se vea el código permanentemente
+      window.history.replaceState({}, document.title, window.location.pathname);
+      alert(`✅ Se ha vinculado al proyecto: ${projectKey}`);
+    }
+  }, [isDataLoaded, schoolSettings.cloudProjectKey]);
+
   // Lógica de Sincronización Remota (Simulada para multi-ciudad)
   const syncWithCloud = useCallback(async (push = false) => {
     if (!isOnline || !schoolSettings.cloudProjectKey) return;
@@ -84,7 +96,6 @@ const App: React.FC = () => {
     
     try {
       if (push) {
-        // Subir datos a la "Nube" (Shared Space)
         const allData = { 
           schoolSettings, students, teachers, payments, cashFlow, squads, users,
           lastGlobalUpdate: new Date().toISOString()
@@ -92,7 +103,6 @@ const App: React.FC = () => {
         localStorage.setItem(CLOUD_STORAGE_KEY, JSON.stringify(allData));
         setHasUnsavedChanges(false);
       } else {
-        // Consultar si hay datos nuevos de la otra ciudad
         const rawCloudData = localStorage.getItem(CLOUD_STORAGE_KEY);
         if (rawCloudData) {
           const cloudData = JSON.parse(rawCloudData);
@@ -108,7 +118,6 @@ const App: React.FC = () => {
     }
   }, [isOnline, schoolSettings, students, teachers, payments, cashFlow, squads, users]);
 
-  // Polling para detectar cambios de la otra ciudad cada 30 segundos
   useEffect(() => {
     const interval = setInterval(() => syncWithCloud(false), 30000);
     return () => clearInterval(interval);
@@ -125,7 +134,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Carga inicial
   useEffect(() => {
     const loadLocalData = async () => {
       try {

@@ -1,6 +1,6 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { User, SchoolSettings } from '../types';
-// Fixed: Added missing Eye icon to the lucide-react import list
 import { 
   Building2, 
   Camera, 
@@ -21,9 +21,7 @@ import {
   Copy,
   Zap,
   Info,
-  Share2,
-  MessageCircle,
-  Eye
+  Share2
 } from 'lucide-react';
 
 interface Props {
@@ -59,12 +57,17 @@ const UserSettings: React.FC<Props> = ({
     }
   };
 
-  const shareViaWhatsApp = () => {
-    if (schoolSettings.cloudProjectKey) {
-      const message = `Hola! Este es el código de acceso para trabajar juntos en la Academia: ${schoolSettings.cloudProjectKey}. Ingresa a la app, ve a Configuración y pégalo en Identificador del Proyecto.`;
-      const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-      window.open(url, '_blank');
+  const generateInviteLink = () => {
+    if (!schoolSettings.cloudProjectKey) {
+      alert("Primero activa la Nube Compartida.");
+      return;
     }
+    // Generamos el link actual + el parámetro project
+    const baseUrl = window.location.origin + window.location.pathname;
+    const inviteUrl = `${baseUrl}?project=${schoolSettings.cloudProjectKey}`;
+    
+    navigator.clipboard.writeText(inviteUrl);
+    alert("🚀 ¡Link de Invitación Copiado!\n\nEnvía este link a tu colega. Al abrirlo, se conectará automáticamente a tu base de datos.");
   };
 
   const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
@@ -84,21 +87,21 @@ const UserSettings: React.FC<Props> = ({
                 <Globe className="w-8 h-8 text-white" />
               </div>
               <div>
-                <h3 className="text-2xl font-black uppercase tracking-tighter">Colaboración Multi-Ciudad</h3>
-                <p className="text-blue-400 text-xs font-black uppercase tracking-[0.2em] mt-1">Conecta sedes y trabaja en equipo</p>
+                <h3 className="text-2xl font-black uppercase tracking-tighter">Sincronización Multi-Ciudad</h3>
+                <p className="text-blue-400 text-xs font-black uppercase tracking-[0.2em] mt-1">Colaboración Remota en Tiempo Real</p>
               </div>
             </div>
             {!schoolSettings.cloudProjectKey ? (
-              <button onClick={generateProjectKey} className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition shadow-xl flex items-center gap-2">
-                <Zap className="w-4 h-4" /> Activar Nube Compartida
+              <button onClick={generateProjectKey} className="bg-white text-slate-900 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-50 transition shadow-xl">
+                Activar Nube Compartida
               </button>
             ) : (
               <div className="flex flex-wrap gap-2">
+                 <button onClick={generateInviteLink} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-900/40">
+                    <Share2 className="w-4 h-4" /> Generar Link de Invitación
+                 </button>
                  <button onClick={copyKey} className="bg-white/10 hover:bg-white/20 px-4 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-bold border border-white/10">
                     <Copy className="w-4 h-4" /> Copiar Código
-                 </button>
-                 <button onClick={shareViaWhatsApp} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-4 rounded-2xl transition flex items-center gap-2 text-xs font-bold shadow-lg shadow-emerald-900/40">
-                    <MessageCircle className="w-4 h-4" /> Compartir por WhatsApp
                  </button>
                  <button onClick={() => handleUpdateSetting('cloudProjectKey', '')} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-4 rounded-2xl transition text-xs font-bold border border-red-500/10">
                     Desvincular
@@ -110,7 +113,7 @@ const UserSettings: React.FC<Props> = ({
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] space-y-6">
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Tu Código de Sincronización</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Identificador del Proyecto Compartido</label>
                 <div className="relative">
                   <input 
                     type={showKey ? "text" : "password"} 
@@ -120,22 +123,16 @@ const UserSettings: React.FC<Props> = ({
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none focus:ring-2 focus:ring-blue-500 transition"
                   />
                   <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition">
-                    <Eye className="w-4 h-4" />
+                    <Zap className="w-4 h-4" />
                   </button>
                 </div>
               </div>
               
               <div className="flex items-start gap-3 bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20">
-                <Info className="w-5 h-5 text-blue-400 shrink-0" />
-                <div className="space-y-2">
-                  <p className="text-[11px] text-slate-400 font-bold uppercase tracking-widest">Instrucciones de Uso:</p>
-                  <p className="text-[11px] text-slate-300 leading-relaxed">
-                    1. Envía este código a tu compañero.<br/>
-                    2. Él debe pegarlo en este mismo apartado de Configuración.<br/>
-                    3. Al guardar alumnos o pagos, haz click en <span className="text-blue-400 font-bold">"Subir a la Nube"</span>.<br/>
-                    4. El sistema le avisará a él automáticamente que hay nuevos datos.
-                  </p>
-                </div>
+                <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Para que otra persona vea tus datos, debe tener este **mismo código** en su aplicación. Los datos se sincronizarán automáticamente cada vez que alguien guarde cambios.
+                </p>
               </div>
             </div>
 
@@ -143,17 +140,15 @@ const UserSettings: React.FC<Props> = ({
               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
                 <div className="bg-emerald-500/10 p-3 rounded-xl"><CheckCircle2 className="w-6 h-6 text-emerald-500" /></div>
                 <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Estatus de Red: {schoolSettings.cloudProjectKey ? 'Activo' : 'Local'}</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">
-                    {schoolSettings.cloudProjectKey ? 'Conectado a la base de datos global compartida.' : 'Trabajando solo en este dispositivo.'}
-                  </p>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Estado: Conectado</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">Tus cambios se están replicando en la nube global.</p>
                 </div>
               </div>
               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
                 <div className="bg-amber-500/10 p-3 rounded-xl"><RefreshCcw className="w-6 h-6 text-amber-500" /></div>
                 <div>
-                  <h4 className="text-sm font-black uppercase tracking-tight">Sincronización en vivo</h4>
-                  <p className="text-[10px] text-slate-500 font-bold">El sistema busca actualizaciones de la otra ciudad cada 30 segundos.</p>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Sincronización Inteligente</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">Verificación automática de cambios remotos cada 30 segundos.</p>
                 </div>
               </div>
             </div>
@@ -165,15 +160,15 @@ const UserSettings: React.FC<Props> = ({
         <div className="lg:col-span-2 space-y-8">
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
             <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 mb-8 uppercase tracking-tighter">
-              <Building2 className="w-6 h-6 text-blue-600" /> Información Institucional
+              <Building2 className="w-6 h-6 text-blue-600" /> Datos de la Sede
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Nombre de la Sede Actual</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre de la Sede</label>
                 <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 tracking-widest">Ciudad / Ubicación</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Dirección / Ciudad</label>
                 <input type="text" value={schoolSettings.address} onChange={(e) => handleUpdateSetting('address', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
               </div>
             </div>
@@ -186,24 +181,24 @@ const UserSettings: React.FC<Props> = ({
             <div className="relative z-10">
               <div className="flex items-center gap-3 mb-6">
                 <Usb className="w-6 h-6 text-amber-600" />
-                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Respaldo Local</h3>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tighter">Respaldo Manual</h3>
               </div>
               <button onClick={() => {
                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
                 const downloadAnchorNode = document.createElement('a');
                 downloadAnchorNode.setAttribute("href", dataStr);
-                downloadAnchorNode.setAttribute("download", `BACKUP_ACADEMIA_${new Date().toISOString().split('T')[0]}.json`);
+                downloadAnchorNode.setAttribute("download", `PRO_MANAGER_BACKUP_${new Date().toISOString().split('T')[0]}.json`);
                 downloadAnchorNode.click();
               }} className="w-full flex items-center justify-between p-4 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 transition-all font-bold text-xs uppercase tracking-widest shadow-lg">
-                <span>Exportar JSON</span>
+                <span>Descargar Backup</span>
                 <FileDown className="w-5 h-5" />
               </button>
             </div>
           </div>
           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-center">
              <Database className="w-6 h-6 text-slate-300 mx-auto mb-4" />
-             <h4 className="text-xs font-black uppercase mb-1">Seguridad Dual</h4>
-             <p className="text-[9px] text-slate-400 font-bold px-4 leading-relaxed">Tus datos están protegidos en este PC y opcionalmente en la nube compartida.</p>
+             <h4 className="text-xs font-black uppercase mb-1">Copia Local</h4>
+             <p className="text-[9px] text-slate-400 font-bold px-4 leading-relaxed">Los datos también se guardan en el navegador por seguridad.</p>
           </div>
         </div>
       </div>
