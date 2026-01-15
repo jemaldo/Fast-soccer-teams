@@ -5,7 +5,8 @@ import {
   Building2, Globe, ShieldCheck, Zap, Share2, Settings, Trash2, 
   Upload, AlertTriangle, Plus, ListFilter, HardDrive, DownloadCloud, 
   Activity, Sparkles, CheckCircle2, Loader2, ExternalLink, ShoppingCart,
-  Database, Server, Rocket, ArrowRight
+  Database, Server, Rocket, ArrowRight, Mail, Phone, MapPin, Users,
+  Target, GraduationCap, X, Info, Camera, Image as ImageIcon
 } from 'lucide-react';
 
 interface Props {
@@ -19,212 +20,271 @@ interface Props {
 }
 
 const UserSettings: React.FC<Props> = ({ 
-  schoolSettings, setSchoolSettings, allData, onImportData
+  users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData 
 }) => {
+  const [activeTab, setActiveTab] = useState<'SCHOOL' | 'DATA' | 'USERS' | 'CLOUD'>('SCHOOL');
+  const [newCategory, setNewCategory] = useState('');
+  const [newPosition, setNewPosition] = useState('');
+  const [newUserName, setNewUserName] = useState('');
   const jsonInputRef = useRef<HTMLInputElement>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
-  const [connStatus, setConnStatus] = useState<'OK' | 'ERROR' | 'IDLE'>('IDLE');
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const testConnection = async () => {
-    setConnStatus('IDLE');
-    try {
-      const res = await fetch('https://kvdb.io/test', { mode: 'no-cors' });
-      setConnStatus('OK');
-    } catch (e) {
-      setConnStatus('ERROR');
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        // Opcional: Podríamos comprimir aquí también si fuera necesario
+        setSchoolSettings(prev => ({ ...prev, logo: base64String }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const optimizeMemory = async () => {
-    if (!confirm("COMPRESIÓN EXTREMA: Esto reducirá las fotos a miniaturas de 40px para que quepan en el servidor gratuito. ¿Continuar?")) return;
-    setIsOptimizing(true);
-    
-    const compress = (base64Str: string): Promise<string> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.src = base64Str;
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = 40; canvas.height = 40; // Miniatura extrema
-          const ctx = canvas.getContext('2d');
-          ctx?.drawImage(img, 0, 0, 40, 40);
-          resolve(canvas.toDataURL('image/jpeg', 0.3));
-        };
-      });
-    };
-
-    const optimizedStudents = await Promise.all(allData.students.map(async (s: Student) => {
-      if (s.photo && s.photo.length > 1000) {
-        const compressed = await compress(s.photo);
-        return { ...s, photo: compressed };
-      }
-      return s;
-    }));
-
-    onImportData({ ...allData, students: optimizedStudents });
-    setIsOptimizing(false);
-    alert("✅ FOTOS MINIMIZADAS. Ahora tus datos pesan muy poco. Intenta sincronizar de nuevo.");
+  const addCategory = () => {
+    if (!newCategory) return;
+    setSchoolSettings(prev => ({ ...prev, categories: [...prev.categories, newCategory] }));
+    setNewCategory('');
   };
 
-  const payloadSize = JSON.stringify(allData).length;
-  const isTooHeavy = payloadSize > 64000;
-  const percentage = Math.min(Math.round((payloadSize / 64000) * 100), 100);
+  const removeCategory = (cat: string) => {
+    setSchoolSettings(prev => ({ ...prev, categories: prev.categories.filter(c => c !== cat) }));
+  };
+
+  const addPosition = () => {
+    if (!newPosition) return;
+    setSchoolSettings(prev => ({ ...prev, positions: [...prev.positions, newPosition] }));
+    setNewPosition('');
+  };
+
+  const removePosition = (pos: string) => {
+    setSchoolSettings(prev => ({ ...prev, positions: prev.positions.filter(p => p !== pos) }));
+  };
+
+  const addUser = () => {
+    if (!newUserName) return;
+    const newUser: User = { id: Date.now().toString(), username: newUserName, role: 'COACH' };
+    setUsers([...users, newUser]);
+    setNewUserName('');
+  };
+
+  const removeUser = (id: string) => {
+    if (id === '1') return alert("No puedes eliminar al administrador principal");
+    setUsers(users.filter(u => u.id !== id));
+  };
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
-      {/* SECCIÓN DE RECOMENDACIÓN DEL INGENIERO */}
-      <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
+      {/* SUPABASE RECOMMENDATION */}
+      <div className="bg-gradient-to-br from-slate-900 to-blue-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Database className="w-64 h-64 rotate-12" />
         </div>
         <div className="relative z-10 max-w-2xl">
           <div className="flex items-center gap-3 mb-6">
-            <div className="bg-white/20 p-2 rounded-lg">
+            <div className="bg-blue-500 p-2 rounded-lg">
               <Rocket className="w-6 h-6 text-white" />
             </div>
-            <span className="text-xs font-black uppercase tracking-widest">Recomendación del Ingeniero</span>
+            <span className="text-xs font-black uppercase tracking-widest text-blue-400">Próxima Parada: Supabase</span>
           </div>
-          <h2 className="text-4xl font-black mb-4 leading-none tracking-tighter">Pásate a Supabase (Gratis)</h2>
-          <p className="text-emerald-100 font-medium mb-8">
-            Estás usando un servidor temporal de texto limitado a 64KB. Para escalar tu academia con miles de fotos y máxima velocidad, te recomiendo migrar a una base de datos real.
+          <h2 className="text-4xl font-black mb-4 leading-none tracking-tighter">Migración Profesional Supabase</h2>
+          <p className="text-blue-100 font-medium mb-6">
+            Has tomado la decisión correcta. Al pasarte a Supabase desbloquearás espacio ilimitado para fotos HD y una base de datos real.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white/10 backdrop-blur-md p-5 rounded-2xl border border-white/20">
-              <h4 className="font-black text-sm mb-1">Plan Actual (Lite)</h4>
-              <p className="text-[10px] opacity-70 mb-4">Servidor KVDB Free</p>
-              <ul className="text-[10px] space-y-2 font-bold">
-                <li className="flex items-center gap-2 opacity-60">❌ Límite 64 KB (Muy poco)</li>
-                <li className="flex items-center gap-2 opacity-60">❌ Fotos borrosas/pequeñas</li>
-                <li className="flex items-center gap-2 opacity-60">❌ Error de Conexión frecuente</li>
-              </ul>
-            </div>
-            <div className="bg-white/20 backdrop-blur-md p-5 rounded-2xl border border-white/40 ring-4 ring-white/10">
-              <h4 className="font-black text-sm mb-1 text-yellow-300">Plan Pro (Supabase)</h4>
-              <p className="text-[10px] opacity-70 mb-4">Base de Datos Dedicada</p>
-              <ul className="text-[10px] space-y-2 font-bold">
-                <li className="flex items-center gap-2 text-emerald-300">✅ 500 MB (Espacio Infinito)</li>
-                <li className="flex items-center gap-2 text-emerald-300">✅ Fotos HD Ilimitadas</li>
-                <li className="flex items-center gap-2 text-emerald-300">✅ Gratis Forever</li>
-              </ul>
-            </div>
+          <div className="inline-flex items-center gap-3 bg-white/10 px-6 py-3 rounded-2xl border border-white/20">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            <span className="text-xs font-bold uppercase tracking-widest">Preparado para la gran escala</span>
           </div>
-          <button className="mt-8 bg-white text-emerald-700 px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-xl hover:scale-105 transition">
-             Contactar Soporte para Migración <ArrowRight className="w-4 h-4" />
-          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm">
-            <div className="flex justify-between items-center mb-8">
-              <h3 className="text-xl font-black uppercase tracking-tight text-slate-800">Estado de la Nube Actual</h3>
-              <div className="flex gap-2">
-                <button onClick={testConnection} className="p-3 bg-slate-50 text-slate-400 rounded-xl hover:bg-blue-50 hover:text-blue-600 transition">
-                  <Activity className="w-5 h-5" />
-                </button>
-                <button onClick={optimizeMemory} disabled={isOptimizing} className="bg-amber-100 text-amber-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2">
-                  {isOptimizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                  Limpieza de Memoria
-                </button>
-              </div>
-            </div>
+      {/* NAVIGATION TABS */}
+      <div className="flex flex-wrap gap-2 bg-slate-100 p-2 rounded-[2rem] border border-slate-200">
+        <button onClick={() => setActiveTab('SCHOOL')} className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition ${activeTab === 'SCHOOL' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}>Sede y Atletas</button>
+        <button onClick={() => setActiveTab('USERS')} className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition ${activeTab === 'USERS' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}>Personal y Accesos</button>
+        <button onClick={() => setActiveTab('DATA')} className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition ${activeTab === 'DATA' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}>Seguridad de Datos</button>
+        <button onClick={() => setActiveTab('CLOUD')} className={`flex-1 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition ${activeTab === 'CLOUD' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:bg-white/50'}`}>Nube Lite (Actual)</button>
+      </div>
 
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between items-end mb-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Capacidad de Transferencia (Free Tier)</p>
-                  <p className={`text-sm font-black ${isTooHeavy ? 'text-red-600' : 'text-emerald-600'}`}>
-                    {Math.round(payloadSize/1024)} KB / 64 KB
-                  </p>
-                </div>
-                <div className="h-4 bg-slate-100 rounded-full overflow-hidden p-1">
-                  <div 
-                    className={`h-full rounded-full transition-all duration-1000 ${isTooHeavy ? 'bg-red-500' : percentage > 80 ? 'bg-amber-500' : 'bg-emerald-500'}`} 
-                    style={{ width: `${percentage}%` }}
-                  ></div>
-                </div>
+      {/* TAB CONTENT: SCHOOL & CATEGORIES */}
+      {activeTab === 'SCHOOL' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
+          {/* Identidad de la Sede */}
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center gap-4">
+                <Building2 className="w-8 h-8 text-blue-600" />
+                <h3 className="text-xl font-black uppercase tracking-tighter">Identidad Institucional</h3>
               </div>
-
-              {isTooHeavy && (
-                <div className="bg-red-50 border border-red-100 p-4 rounded-2xl flex gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
-                  <p className="text-[11px] text-red-700 font-bold leading-relaxed uppercase">
-                    Error de peso detectado. El servidor gratuito rechaza tus datos. Pulsa "Limpieza de Memoria" para reducir el tamaño de las fotos automáticamente.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
-            <div className="flex items-center gap-4 mb-8">
-              <div className="bg-blue-600 p-3 rounded-2xl shadow-lg shadow-blue-100">
-                <Building2 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-tight">Sede Principal</h3>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Configuración de Identidad</p>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">Nombre de la Academia</label>
-                  <input type="text" value={schoolSettings.name} onChange={(e) => setSchoolSettings(p => ({...p, name: e.target.value}))} className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">ID de Sincronización</label>
-                  <div className="flex gap-2">
-                    <input type="text" readOnly value={schoolSettings.cloudProjectKey || ''} className="flex-1 px-5 py-4 bg-slate-100 border border-slate-200 rounded-2xl text-sm font-black text-blue-600 outline-none" />
-                    <button onClick={() => {
-                        navigator.clipboard.writeText(schoolSettings.cloudProjectKey || '');
-                        alert("Código copiado.");
-                     }} className="p-4 bg-slate-900 text-white rounded-2xl hover:bg-blue-600 transition"><Share2 className="w-5 h-5" /></button>
+              
+              {/* CARGA DE LOGO */}
+              <div className="relative group">
+                <div 
+                  onClick={() => logoInputRef.current?.click()}
+                  className="w-24 h-24 rounded-2xl bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden cursor-pointer hover:border-blue-400 transition shadow-inner"
+                >
+                  {schoolSettings.logo ? (
+                    <img src={schoolSettings.logo} className="w-full h-full object-contain p-2" alt="Logo" />
+                  ) : (
+                    <ImageIcon className="w-8 h-8 text-slate-300" />
+                  )}
+                  <div className="absolute inset-0 bg-blue-600/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                    <Camera className="w-6 h-6 text-white" />
                   </div>
                 </div>
+                <input type="file" ref={logoInputRef} onChange={handleLogoChange} className="hidden" accept="image/*" />
+                <p className="text-[8px] font-black uppercase text-center mt-1 text-slate-400">Logo Sede</p>
               </div>
-              <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 flex flex-col justify-center items-center text-center">
-                 <ShieldCheck className="w-12 h-12 text-emerald-500 mb-2" />
-                 <h4 className="text-sm font-black uppercase text-slate-800">Seguridad Activa</h4>
-                 <p className="text-[10px] text-slate-500 font-bold leading-tight">Tus datos financieros están encriptados antes de subir a la nube.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Nombre de la Sede</label>
+                <input type="text" value={schoolSettings.name} onChange={e => setSchoolSettings(prev => ({...prev, name: e.target.value}))} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">NIT Institucional</label>
+                <input type="text" value={schoolSettings.nit} onChange={e => setSchoolSettings(prev => ({...prev, nit: e.target.value}))} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Teléfono Principal</label>
+                <input type="text" value={schoolSettings.phone} onChange={e => setSchoolSettings(prev => ({...prev, phone: e.target.value}))} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-black text-slate-400 uppercase mb-2 block">Dirección Sede</label>
+                <input type="text" value={schoolSettings.address} onChange={e => setSchoolSettings(prev => ({...prev, address: e.target.value}))} className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" />
+              </div>
+            </div>
+          </div>
+
+          {/* Listas Desplegables: Categorías y Posiciones */}
+          <div className="space-y-8">
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h4 className="text-sm font-black uppercase text-slate-800 mb-6 flex items-center gap-2"><Target className="w-5 h-5 text-blue-600" /> Categorías Deportivas</h4>
+              <div className="flex gap-2 mb-6">
+                <input value={newCategory} onChange={e => setNewCategory(e.target.value)} placeholder="Nueva categoría..." className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" />
+                <button onClick={addCategory} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition"><Plus /></button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {schoolSettings.categories.map(cat => (
+                  <span key={cat} className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-slate-200">
+                    {cat} <button onClick={() => removeCategory(cat)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+              <h4 className="text-sm font-black uppercase text-slate-800 mb-6 flex items-center gap-2"><GraduationCap className="w-5 h-5 text-blue-600" /> Posiciones de Juego</h4>
+              <div className="flex gap-2 mb-6">
+                <input value={newPosition} onChange={e => setNewPosition(e.target.value)} placeholder="Nueva posición..." className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none" />
+                <button onClick={addPosition} className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 transition"><Plus /></button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {schoolSettings.positions.map(pos => (
+                  <span key={pos} className="inline-flex items-center gap-2 bg-slate-100 text-slate-700 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-slate-200">
+                    {pos} <button onClick={() => removePosition(pos)} className="text-slate-400 hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                ))}
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        <div className="space-y-6">
-          <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white shadow-xl relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10"><Server className="w-20 h-20" /></div>
-             <h4 className="text-sm font-black uppercase mb-4 text-blue-400">Infraestructura</h4>
-             <p className="text-[10px] text-slate-400 font-bold leading-relaxed mb-6">
-               Para aumentar el espacio manualmente debes comprar un plan en KVDB.io.
-             </p>
-             <a href="https://kvdb.io" target="_blank" className="w-full bg-blue-600 py-4 rounded-2xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest hover:bg-blue-500 transition">
-               <ShoppingCart className="w-4 h-4" /> Ver Precios
-             </a>
+      {/* TAB CONTENT: USERS */}
+      {activeTab === 'USERS' && (
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm animate-in fade-in duration-500">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h3 className="text-2xl font-black uppercase tracking-tighter">Usuarios del Sistema</h3>
+              <p className="text-sm text-slate-500 font-bold uppercase tracking-widest mt-1">Control de accesos y roles</p>
+            </div>
+            <div className="flex gap-3">
+              <input value={newUserName} onChange={e => setNewUserName(e.target.value)} placeholder="Nombre de usuario..." className="px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl font-bold outline-none" />
+              <button onClick={addUser} className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-blue-100">
+                <Plus className="w-4 h-4" /> Agregar Staff
+              </button>
+            </div>
           </div>
 
-          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm text-center">
-             <HardDrive className="w-10 h-10 text-slate-200 mx-auto mb-4" />
-             <h4 className="text-xs font-black uppercase text-slate-800 mb-6">Copia Total (Seguridad)</h4>
-             <div className="space-y-3">
-               <button onClick={() => {
-                 const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
-                 const a = document.createElement('a'); a.href = dataStr; a.download = `BACKUP_${schoolSettings.name}.json`; a.click();
-               }} className="w-full py-4 border-2 border-slate-900 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition">Exportar JSON</button>
-               <button onClick={() => jsonInputRef.current?.click()} className="w-full py-4 bg-slate-100 rounded-2xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-200 transition">Importar JSON</button>
-               <input type="file" ref={jsonInputRef} onChange={(e) => {
-                 const f = e.target.files?.[0]; if (!f) return;
-                 const r = new FileReader();
-                 r.onload = (ev) => { try { onImportData(JSON.parse(ev.target?.result as string)); alert("✅ Copia restaurada."); } catch(e) { alert("❌ Error en archivo."); }};
-                 r.readAsText(f);
-               }} className="hidden" />
-             </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {users.map(user => (
+              <div key={user.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-200 flex items-center justify-between group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center shadow-sm">
+                    <Users className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-800 uppercase tracking-tight">{user.username}</p>
+                    <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">{user.role}</p>
+                  </div>
+                </div>
+                {user.id !== '1' && (
+                  <button onClick={() => removeUser(user.id)} className="p-3 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition opacity-0 group-hover:opacity-100">
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      )}
+
+      {/* TAB CONTENT: DATA SAFETY */}
+      {activeTab === 'DATA' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in fade-in duration-500">
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm text-center">
+            <HardDrive className="w-16 h-16 text-blue-600 mx-auto mb-6" />
+            <h3 className="text-xl font-black uppercase mb-4">Exportar Backup Total</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">Descarga un archivo JSON con absolutamente toda la información: alumnos, pagos, docentes y fotos. Úsalo como respaldo semanal.</p>
+            <button onClick={() => {
+              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
+              const a = document.createElement('a'); a.href = dataStr; a.download = `BACKUP_ACADEMIA_TOTAL.json`; a.click();
+            }} className="w-full py-5 bg-slate-900 text-white rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition shadow-xl">Generar Archivo JSON</button>
+          </div>
+
+          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm text-center">
+            <Upload className="w-16 h-16 text-emerald-600 mx-auto mb-6" />
+            <h3 className="text-xl font-black uppercase mb-4">Restaurar Sistema</h3>
+            <p className="text-sm text-slate-500 mb-8 leading-relaxed">Sube un archivo de backup previamente descargado. Esto reemplazará todos los datos actuales con la versión del archivo.</p>
+            <button onClick={() => jsonInputRef.current?.click()} className="w-full py-5 border-2 border-dashed border-slate-200 text-slate-600 rounded-[1.5rem] font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition">Seleccionar Archivo JSON</button>
+            <input type="file" ref={jsonInputRef} onChange={e => {
+              const f = e.target.files?.[0]; if (!f) return;
+              const r = new FileReader(); r.onload = ev => { try { onImportData(JSON.parse(ev.target?.result as string)); alert("Datos restaurados."); } catch(e) { alert("Archivo inválido."); }};
+              r.readAsText(f);
+            }} className="hidden" />
+          </div>
+        </div>
+      )}
+
+      {/* TAB CONTENT: CLOUD LITE */}
+      {activeTab === 'CLOUD' && (
+        <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm animate-in fade-in duration-500">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
+            <div className="flex items-center gap-4">
+              <Globe className="w-10 h-10 text-blue-600" />
+              <div>
+                <h3 className="text-2xl font-black uppercase tracking-tighter">Servidor KVDB Lite</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sincronización entre ciudades (vía texto)</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <a href="https://kvdb.io" target="_blank" className="bg-blue-50 text-blue-600 px-6 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center gap-2 hover:bg-blue-100 transition"><ShoppingCart className="w-4 h-4" /> Comprar Bucket Privado</a>
+            </div>
+          </div>
+          <div className="bg-blue-50 p-8 rounded-[2rem] border border-blue-100">
+             <div className="flex items-center gap-3 mb-4">
+                <Info className="w-5 h-5 text-blue-600" />
+                <span className="font-black text-xs uppercase tracking-widest text-blue-800">Nota técnica sobre KVDB</span>
+             </div>
+             <p className="text-xs text-blue-600 font-bold leading-relaxed">
+               Actualmente usas la "Nube Lite" que envía solo texto para sincronizar datos vitales (pagos, nombres, asistencia) sin fotos pesadas. Este sistema es ideal para cuando tienes poco internet. Una vez que migremos a Supabase, este panel se actualizará para mostrar el estado de tu Base de Datos SQL profesional.
+             </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

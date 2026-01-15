@@ -32,7 +32,8 @@ import {
   AlertCircle,
   ArrowRight,
   CreditCard,
-  User as UserIcon
+  User as UserIcon,
+  Trophy
 } from 'lucide-react';
 import { exportWorkbook } from '../services/excelService';
 
@@ -206,8 +207,8 @@ const ReportManager: React.FC<Props> = ({ students, teachers, payments, cashFlow
               <div className="space-y-8 animate-in fade-in duration-500">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-blue-50/50 p-6 rounded-3xl border border-blue-100">
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg">
-                      {selectedStudent.fullName.charAt(0)}
+                    <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-lg overflow-hidden">
+                      {selectedStudent.photo ? <img src={selectedStudent.photo} className="w-full h-full object-cover" /> : selectedStudent.fullName.charAt(0)}
                     </div>
                     <div>
                       <p className="text-lg font-black text-slate-900">{selectedStudent.fullName}</p>
@@ -327,10 +328,20 @@ const ReportManager: React.FC<Props> = ({ students, teachers, payments, cashFlow
 
       <div className="print-only bg-white p-12">
         <div className="border-b-4 border-slate-900 pb-6 mb-8 flex justify-between items-end">
-          <div>
-            <h1 className="text-3xl font-black uppercase text-slate-900 tracking-tighter">{schoolSettings.name}</h1>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Reporte Oficial de Cartera</p>
-            <p className="text-slate-400 text-[10px] mt-1">NIT: {schoolSettings.nit} | {schoolSettings.address}</p>
+          <div className="flex gap-6 items-center">
+            {schoolSettings.logo ? (
+               <img src={schoolSettings.logo} className="w-32 h-32 object-contain" alt="Logo Sede" />
+            ) : (
+               <div className="w-24 h-24 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300">
+                  <Trophy className="w-12 h-12" />
+               </div>
+            )}
+            <div>
+              <h1 className="text-3xl font-black uppercase text-slate-900 tracking-tighter">{schoolSettings.name}</h1>
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Reporte Oficial de Cartera</p>
+              <p className="text-slate-400 text-[10px] mt-1">NIT: {schoolSettings.nit} | {schoolSettings.address}</p>
+              <p className="text-slate-400 text-[10px]">Contacto: {schoolSettings.phone} | {schoolSettings.email}</p>
+            </div>
           </div>
           <div className="text-right text-xs font-black">
             FECHA EMISIÓN: {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })}
@@ -367,7 +378,19 @@ const ReportManager: React.FC<Props> = ({ students, teachers, payments, cashFlow
               <p className="text-sm font-black uppercase tracking-widest">Resumen Final: {debtInfo?.monthsOwed} Meses adeudados para el ciclo {reportYear}.</p>
             </div>
 
+            <div className="mt-20 flex justify-between gap-10">
+               <div className="flex-1 border-t border-slate-900 pt-2 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-tighter">Firma Autorizada</p>
+                  <p className="text-[8px] font-bold text-slate-400">Coordinación Administrativa</p>
+               </div>
+               <div className="flex-1 border-t border-slate-900 pt-2 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-tighter">Firma Acudiente</p>
+                  <p className="text-[8px] font-bold text-slate-400">Recibido conforme</p>
+               </div>
+            </div>
+
             <div className="mt-20 pt-10 border-t border-slate-200 text-center opacity-50">
+               <p className="text-[10px] font-bold italic">Este informe es generado automáticamente por el sistema de gestión deportiva Pro-Manager.</p>
                <p className="text-[10px] font-bold">Desarrollo: Fastsystems Jesus Maldonado Castro</p>
             </div>
           </div>
