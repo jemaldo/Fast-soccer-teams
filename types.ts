@@ -29,6 +29,9 @@ export interface Student {
   entryDate: string;
   exitDate?: string;
   isPaidUp: boolean; 
+  teacherId?: string;
+  trainingType: 'Formativa' | 'Elite';
+  lastUpdated?: string; // Para control de versiones
 }
 
 export interface Teacher {
@@ -45,6 +48,7 @@ export interface Teacher {
   entryDate: string;
   photo?: string;
   resumeUrl?: string; 
+  lastUpdated?: string;
 }
 
 export interface Payment {
@@ -56,6 +60,7 @@ export interface Payment {
   targetName: string;
   description: string;
   status: 'PAID' | 'PENDING';
+  lastUpdated?: string;
 }
 
 export interface CashTransaction {
@@ -65,6 +70,7 @@ export interface CashTransaction {
   amount: number;
   description: string;
   user: string;
+  lastUpdated?: string;
 }
 
 export interface SquadPlayer {
@@ -80,6 +86,7 @@ export interface MatchSquad {
   opponent: string;
   category: string;
   players: SquadPlayer[];
+  lastUpdated?: string;
 }
 
 export interface User {
@@ -97,11 +104,11 @@ export interface SchoolSettings {
   logo?: string;
   categories: string[];
   positions: string[];
-  // Cloud Sync Settings
   googleDriveLinked?: boolean;
   linkedEmail?: string;
   lastCloudSync?: string;
-  googleAccessToken?: string;
+  cloudProjectKey?: string; // Código para compartir entre ciudades
+  lastSyncTimestamp?: string;
 }
 
 export type AppView = 'DASHBOARD' | 'STUDENTS' | 'TEACHERS' | 'FINANCE' | 'MATCHES' | 'TRAINING' | 'USERS' | 'REPORTS';

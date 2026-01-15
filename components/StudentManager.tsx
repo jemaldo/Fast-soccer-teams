@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { Student, Payment, BloodType, SchoolSettings } from '../types';
+import { Student, Teacher, Payment, BloodType, SchoolSettings } from '../types';
 import { 
   Plus, 
   Search, 
@@ -23,7 +23,9 @@ import {
   CalendarCheck, 
   Check,
   ChevronDown,
-  Info
+  Info,
+  Medal,
+  Users as UsersIcon
 } from 'lucide-react';
 import { parseExcelFile, downloadTemplate } from '../services/excelService';
 
@@ -33,9 +35,10 @@ interface Props {
   payments: Payment[];
   setPayments: React.Dispatch<React.SetStateAction<Payment[]>>;
   schoolSettings: SchoolSettings;
+  teachers: Teacher[];
 }
 
-const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setPayments, schoolSettings }) => {
+const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setPayments, schoolSettings, teachers }) => {
   const [showForm, setShowForm] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
@@ -120,6 +123,8 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
       entryDate: formData.get('entryDate') as string,
       isPaidUp: formData.get('isPaidUp') === 'on',
       photo: photoPreview || undefined,
+      teacherId: formData.get('teacherId') as string,
+      trainingType: formData.get('trainingType') as 'Formativa' | 'Elite',
       parents: [{ 
         name: parentName, 
         phone: parentPhone, 
@@ -217,6 +222,7 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
           position: row.Posicion || schoolSettings.positions[0], 
           entryDate: row.FechaIngreso || new Date().toISOString().split('T')[0],
           isPaidUp: row.PazYSalvo === "SI",
+          trainingType: (row.TipoFormacion || "Formativa") as 'Formativa' | 'Elite',
           parents: [{ 
             name: row.NombrePadre || "", 
             phone: row.TelefonoPadre || "", 
@@ -288,11 +294,12 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
 
       {/* Tabla */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto no-print">
-        <table className="w-full text-left min-w-[800px]">
+        <table className="w-full text-left min-w-[1000px]">
           <thead className="bg-slate-50 border-b">
             <tr>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">Alumno</th>
-              <th className="px-6 py-4 text-sm font-semibold text-slate-600">Categoría</th>
+              <th className="px-6 py-4 text-sm font-semibold text-slate-600">Nivel / Formación</th>
+              <th className="px-6 py-4 text-sm font-semibold text-slate-600">Entrenador</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">Contacto</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center">Estado</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-right">Acciones</th>
@@ -301,47 +308,67 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
           <tbody className="divide-y divide-slate-100">
             {filteredStudents.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">No se encontraron alumnos con los filtros seleccionados.</td>
+                <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">No se encontraron alumnos con los filtros seleccionados.</td>
               </tr>
             ) : (
-              filteredStudents.map((student) => (
-                <tr key={student.id} className="hover:bg-slate-50 transition">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden border border-slate-200">
-                        {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : student.fullName.charAt(0)}
+              filteredStudents.map((student) => {
+                const assignedTeacher = teachers.find(t => t.id === student.teacherId);
+                return (
+                  <tr key={student.id} className="hover:bg-slate-50 transition">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold overflow-hidden border border-slate-200">
+                          {student.photo ? <img src={student.photo} className="w-full h-full object-cover" /> : student.fullName.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-800">{student.fullName}</p>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">DNI: {student.dni || 'S/D'}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-slate-800">{student.fullName}</p>
-                        <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">DNI: {student.dni || 'S/D'}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm font-bold text-slate-700">{student.category}</span>
+                        <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border w-fit ${student.trainingType === 'Elite' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                          {student.trainingType || 'Formativa'}
+                        </span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-sm font-medium text-slate-600">{student.category}</td>
-                  <td className="px-6 py-4 text-sm text-slate-500">{student.phone}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center">
-                      {student.isPaidUp ? (
-                        <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border border-emerald-200">
-                          <UserCheck className="w-3 h-3" /> Paz y Salvo
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400">
+                          <UsersIcon className="w-4 h-4" />
+                        </div>
+                        <span className="text-sm font-medium text-slate-600 italic">
+                          {assignedTeacher ? `${assignedTeacher.firstName} ${assignedTeacher.lastName}` : 'Sin asignar'}
                         </span>
-                      ) : (
-                        <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border border-red-200">
-                          <UserX className="w-3 h-3" /> Moroso
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button onClick={() => setHistoryStudentId(student.id)} title="Historial" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><History className="w-4 h-4" /></button>
-                      <button onClick={() => handleOpenPaymentModal(student)} title="Recaudar" className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><CreditCard className="w-4 h-4" /></button>
-                      <button onClick={() => { setSelectedStudent(student); setPhotoPreview(student.photo || null); setShowForm(true); }} title="Editar" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteConfirmId(student.id)} title="Eliminar" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-slate-500">{student.phone}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center">
+                        {student.isPaidUp ? (
+                          <span className="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border border-emerald-200">
+                            <UserCheck className="w-3 h-3" /> Paz y Salvo
+                          </span>
+                        ) : (
+                          <span className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 border border-red-200">
+                            <UserX className="w-3 h-3" /> Moroso
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setHistoryStudentId(student.id)} title="Historial" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><History className="w-4 h-4" /></button>
+                        <button onClick={() => handleOpenPaymentModal(student)} title="Recaudar" className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><CreditCard className="w-4 h-4" /></button>
+                        <button onClick={() => { setSelectedStudent(student); setPhotoPreview(student.photo || null); setShowForm(true); }} title="Editar" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => setDeleteConfirmId(student.id)} title="Eliminar" className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -392,12 +419,28 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
                 
                 <div className="w-full space-y-4 pt-4">
                   <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                    <h5 className="text-[10px] font-black uppercase text-blue-600 mb-2 tracking-widest">Información Deportiva</h5>
-                    <div className="space-y-3">
+                    <h5 className="text-[10px] font-black uppercase text-blue-600 mb-4 tracking-widest flex items-center gap-2">
+                       <Medal className="w-3.5 h-3.5" /> Estatus Deportivo
+                    </h5>
+                    <div className="space-y-4">
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Categoría Asignada</label>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Categoría Actual</label>
                         <select name="category" defaultValue={selectedStudent?.category || schoolSettings.categories[0]} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
                           {schoolSettings.categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tipo de Formación</label>
+                        <select name="trainingType" defaultValue={selectedStudent?.trainingType || 'Formativa'} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="Formativa">Proceso Formativo</option>
+                          <option value="Elite">Grupo Elite / Rendimiento</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Entrenador Responsable</label>
+                        <select name="teacherId" defaultValue={selectedStudent?.teacherId || ""} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                          <option value="">Sin asignar</option>
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
                         </select>
                       </div>
                       <div>
@@ -474,7 +517,10 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
           </div>
         </div>
       )}
-
+      
+      {/* (El resto de los modales y componentes auxiliares como Pago Múltiple e Historial se mantienen sin cambios para no omitir funcionalidad) */}
+      {/* ... */}
+      
       {/* MODAL DE PAGOS MÚLTIPLES */}
       {paymentModalStudent && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300">
