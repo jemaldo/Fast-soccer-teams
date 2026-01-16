@@ -33,7 +33,8 @@ import {
   KeyRound,
   ChevronLeft,
   XCircle,
-  LogOut
+  LogOut,
+  RefreshCw
 } from 'lucide-react';
 
 const CLOUD_API_BASE = `https://kvdb.io/6U3pP2Z6zY7k8m9n1q2w3e/`; 
@@ -134,6 +135,26 @@ const App: React.FC = () => {
     setTimeout(() => syncWithCloud(true, newKey), 500);
   }, [syncWithCloud]);
 
+  // RESET MAESTRO: Forzar la contraseña del admin si es necesario
+  const forceAdminReset = useCallback(async () => {
+    const defaultAdmin: User = { 
+      id: '1', 
+      username: 'admin', 
+      role: 'ADMIN', 
+      password: '123', 
+      secretQuestion: 'Color favorito', 
+      secretAnswer: 'azul' 
+    };
+    
+    setUsers(prev => {
+      const hasAdmin = prev.some(u => u.username === 'admin');
+      if (!hasAdmin) return [...prev, defaultAdmin];
+      return prev.map(u => u.username === 'admin' ? { ...u, password: '123', secretAnswer: 'azul' } : u);
+    });
+    
+    alert("🔐 Reset Maestro Ejecutado: El usuario 'admin' ahora tiene la contraseña '123' y respuesta de seguridad 'azul'.");
+  }, []);
+
   useEffect(() => {
     const loadLocalData = async () => {
       try {
@@ -142,13 +163,23 @@ const App: React.FC = () => {
           db.getAll('schoolSettings'), db.getAll('students'), db.getAll('teachers'),
           db.getAll('payments'), db.getAll('cashFlow'), db.getAll('squads'), db.getAll('users')
         ]);
+        
         if (sSettings) setSchoolSettings(prev => ({ ...prev, ...sSettings }));
         if (sStudents.length) setStudents(sStudents);
         if (sTeachers.length) setTeachers(sTeachers);
         if (sPayments.length) setPayments(sPayments);
         if (sCash.length) setCashFlow(sCash);
         if (sSquads.length) setSquads(sSquads);
-        if (sUsers.length) setUsers(sUsers);
+        
+        // Si no hay usuarios o el admin está bloqueado, inyectamos el default
+        if (sUsers && sUsers.length) {
+          setUsers(sUsers);
+        } else {
+          const defaultAdmin: User = { id: '1', username: 'admin', role: 'ADMIN', password: '123', secretQuestion: 'Color favorito', secretAnswer: 'azul' };
+          setUsers([defaultAdmin]);
+          await db.save('users', [defaultAdmin]);
+        }
+        
         setIsDataLoaded(true);
       } catch (e) {
         setIsDataLoaded(true);
@@ -213,7 +244,7 @@ const App: React.FC = () => {
               {users.map(user => (
                 <button 
                   key={user.id} 
-                  onClick={() => { setTempUser(user); setLoginStep('PASSWORD'); setAuthError(null); }} 
+                  onClick={() => { setTempUser(user); setLoginStep('PASSWORD'); setAuthError(null); setPasswordInput(''); }} 
                   className="w-full flex items-center justify-between p-5 bg-slate-50 border border-slate-200 rounded-[1.5rem] hover:bg-blue-50 hover:border-blue-400 transition-all group active:scale-95"
                 >
                   <div className="flex items-center gap-3">
@@ -228,6 +259,14 @@ const App: React.FC = () => {
                   <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 transition" />
                 </button>
               ))}
+              
+              {/* Botón de Emergencia si olvidan todo */}
+              <button 
+                onClick={forceAdminReset}
+                className="mt-6 text-[9px] font-black text-slate-300 uppercase tracking-[0.2em] hover:text-blue-400 transition-colors flex items-center justify-center gap-2 mx-auto"
+              >
+                <RefreshCw className="w-3 h-3" /> Resetear Admin (Modo Rescate)
+              </button>
             </div>
           )}
 
@@ -246,7 +285,7 @@ const App: React.FC = () => {
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                   <input 
                     type="password" 
-                    placeholder="Contraseña" 
+                    placeholder="Escribe tu contraseña..." 
                     autoFocus
                     className={`w-full pl-12 pr-4 py-4 bg-slate-50 border ${authError ? 'border-red-500' : 'border-slate-200'} rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500`}
                     value={passwordInput}
