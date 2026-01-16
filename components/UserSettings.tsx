@@ -18,7 +18,10 @@ import {
   Settings,
   ShieldCheck,
   Loader2,
-  CloudUpload
+  CloudUpload,
+  Camera,
+  Image as ImageIcon,
+  Quote
 } from 'lucide-react';
 
 interface Props {
@@ -37,6 +40,7 @@ const UserSettings: React.FC<Props> = ({
   users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData, onSyncPush, onActivateCloud
 }) => {
   const jsonInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const [newCategory, setNewCategory] = useState('');
   const [newPosition, setNewPosition] = useState('');
   const [showKey, setShowKey] = useState(false);
@@ -50,10 +54,14 @@ const UserSettings: React.FC<Props> = ({
     }
   };
 
-  const copyKey = () => {
-    if (schoolSettings.cloudProjectKey) {
-      navigator.clipboard.writeText(schoolSettings.cloudProjectKey);
-      alert("Código copiado.");
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        handleUpdateSetting('logo', reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -193,17 +201,58 @@ const UserSettings: React.FC<Props> = ({
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre</label>
-                <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre de la Institución</label>
+                <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Eslogan / Lema</label>
+                <div className="relative">
+                  <Quote className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300" />
+                  <input type="text" placeholder="Ej: Formando campeones..." value={schoolSettings.slogan || ''} onChange={(e) => handleUpdateSetting('slogan', e.target.value)} className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500 italic" />
+                </div>
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">NIT</label>
-                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">NIT / Registro</label>
+                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div>
                 <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Email Sincronización</label>
-                <input type="email" value={schoolSettings.linkedEmail || ''} onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+                <input type="email" value={schoolSettings.linkedEmail || ''} onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 mb-8 uppercase tracking-tighter">
+              <ImageIcon className="w-6 h-6 text-blue-600" /> Identidad Visual
+            </h3>
+            <div className="flex flex-col md:flex-row items-center gap-8">
+               <div className="w-32 h-32 rounded-[2rem] bg-slate-50 border-2 border-dashed border-slate-200 flex items-center justify-center overflow-hidden relative group">
+                  {schoolSettings.logo ? (
+                    <img src={schoolSettings.logo} alt="Logo" className="w-full h-full object-contain p-2" />
+                  ) : (
+                    <ImageIcon className="w-10 h-10 text-slate-200" />
+                  )}
+                  <button 
+                    onClick={() => logoInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center text-white text-[9px] font-black uppercase tracking-widest gap-2"
+                  >
+                    <Camera className="w-6 h-6" />
+                    Subir Logo
+                  </button>
+               </div>
+               <input type="file" ref={logoInputRef} onChange={handleLogoUpload} accept="image/*" className="hidden" />
+               <div className="flex-1 space-y-4">
+                  <div>
+                    <h4 className="text-sm font-black uppercase text-slate-700">Logo de la Academia</h4>
+                    <p className="text-xs text-slate-500 font-medium leading-relaxed mt-1">
+                      El logo aparecerá en el Dashboard, en los volantes de pago y en todos los informes oficiales generados por el sistema.
+                    </p>
+                  </div>
+                  {schoolSettings.logo && (
+                    <button onClick={() => handleUpdateSetting('logo', undefined)} className="text-[10px] font-black uppercase text-red-500 hover:underline">Eliminar Logo Actual</button>
+                  )}
+               </div>
             </div>
           </div>
 
@@ -223,8 +272,8 @@ const UserSettings: React.FC<Props> = ({
                    ))}
                 </div>
                 <div className="flex gap-2">
-                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Nueva..." />
-                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-blue-300" placeholder="Nueva..." />
+                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl hover:bg-blue-700 transition"><Plus className="w-4 h-4" /></button>
                 </div>
              </div>
              <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
@@ -242,8 +291,8 @@ const UserSettings: React.FC<Props> = ({
                    ))}
                 </div>
                 <div className="flex gap-2">
-                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Nueva..." />
-                   <button onClick={addPosition} className="bg-purple-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-1 focus:ring-purple-300" placeholder="Nueva..." />
+                   <button onClick={addPosition} className="bg-purple-600 text-white p-2 rounded-xl hover:bg-purple-700 transition"><Plus className="w-4 h-4" /></button>
                 </div>
              </div>
           </div>

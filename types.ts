@@ -102,6 +102,7 @@ export interface SchoolSettings {
   phone: string;
   email: string;
   logo?: string;
+  slogan?: string; // Nuevo campo para el eslogan
   categories: string[];
   positions: string[];
   googleDriveLinked?: boolean;

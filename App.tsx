@@ -57,6 +57,7 @@ const App: React.FC = () => {
     address: 'Sede Principal',
     phone: '000-0000',
     email: 'admin@academia.com',
+    slogan: 'Formando campeones para la vida',
     googleDriveLinked: false,
     categories: CATEGORIES,
     positions: POSITIONS,

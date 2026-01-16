@@ -51,12 +51,13 @@ const Dashboard: React.FC<Props> = ({ students, teachers, payments, cashFlow, sc
         <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
         <div className="relative z-10 space-y-2">
           <p className="text-blue-400 font-bold uppercase tracking-widest text-xs">Panel de Control</p>
-          <h1 className="text-3xl font-black">Bienvenido a {schoolSettings.name}</h1>
-          <p className="text-slate-400 max-w-md">Gestión deportiva inteligente para el alto rendimiento de tus atletas.</p>
+          <h1 className="text-3xl font-black">{schoolSettings.name}</h1>
+          <p className="text-blue-200/60 font-medium italic text-sm">{schoolSettings.slogan || 'Gestión deportiva inteligente'}</p>
+          <p className="text-slate-400 max-w-md pt-2">Alto rendimiento y formación integral para atletas de élite.</p>
         </div>
         <div className="relative z-10 mt-6 md:mt-0 flex items-center gap-4">
            {schoolSettings.logo ? (
-             <img src={schoolSettings.logo} alt="Logo" className="w-24 h-24 object-contain bg-white rounded-xl p-2 shadow-2xl" />
+             <img src={schoolSettings.logo} alt="Logo" className="w-24 h-24 object-contain bg-white rounded-xl p-2 shadow-2xl border-2 border-blue-500/20" />
            ) : (
              <div className="bg-blue-600 w-20 h-20 rounded-2xl flex items-center justify-center shadow-lg">
                 <Trophy className="w-10 h-10 text-white" />
