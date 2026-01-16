@@ -1,5 +1,6 @@
 
 export type BloodType = 'A+' | 'A-' | 'B+' | 'B-' | 'AB+' | 'AB-' | 'O+' | 'O-';
+export type Lateralidad = 'DIESTRO' | 'ZURDO' | 'AMBOS';
 
 export interface ParentInfo {
   name: string;
@@ -14,6 +15,7 @@ export interface Student {
   birthDate: string;
   age: number;
   bloodType: BloodType;
+  lateralidad: Lateralidad;
   school: string;
   grade: string;
   weight: number; 
@@ -31,7 +33,7 @@ export interface Student {
   isPaidUp: boolean; 
   teacherId?: string;
   trainingType: 'Formativa' | 'Elite';
-  lastUpdated?: string; // Para control de versiones
+  lastUpdated?: string;
 }
 
 export interface Teacher {
@@ -66,18 +68,11 @@ export interface Payment {
 export interface CashTransaction {
   id: string;
   date: string;
-  type: 'INCOME' | 'OUTCOME';
+  type: 'INCOME' | 'OUTCOME' | 'OPENING';
   amount: number;
   description: string;
   user: string;
   lastUpdated?: string;
-}
-
-export interface SquadPlayer {
-  studentId: string;
-  name: string;
-  position: string;
-  isStarter: boolean;
 }
 
 export interface MatchSquad {
@@ -89,10 +84,18 @@ export interface MatchSquad {
   lastUpdated?: string;
 }
 
+export interface SquadPlayer {
+  studentId: string;
+  name: string;
+  position: string;
+  isStarter: boolean;
+}
+
 export interface User {
   id: string;
   username: string;
   role: 'ADMIN' | 'COACH' | 'SECRETARY';
+  password?: string;
 }
 
 export interface SchoolSettings {
@@ -104,11 +107,8 @@ export interface SchoolSettings {
   logo?: string;
   categories: string[];
   positions: string[];
-  googleDriveLinked?: boolean;
-  linkedEmail?: string;
-  lastCloudSync?: string;
-  cloudProjectKey?: string; // Código para compartir entre ciudades
-  lastSyncTimestamp?: string;
+  supabaseUrl?: string;
+  supabaseKey?: string;
 }
 
 export type AppView = 'DASHBOARD' | 'STUDENTS' | 'TEACHERS' | 'FINANCE' | 'MATCHES' | 'TRAINING' | 'USERS' | 'REPORTS';
