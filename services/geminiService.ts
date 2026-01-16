@@ -1,37 +1,27 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 
-function cleanJsonResponse(text: string): string {
-  let cleaned = text.replace(/```json/g, "").replace(/```/g, "").trim();
-  const start = cleaned.indexOf('{');
-  const end = cleaned.lastIndexOf('}');
-  if (start !== -1 && end !== -1) {
-    cleaned = cleaned.substring(start, end + 1);
+// Helper to handle API errors and trigger key re-selection if necessary, following the specific guideline for "Requested entity was not found" error.
+async function handleApiError(error: any) {
+  if (error.message?.includes("Requested entity was not found.")) {
+    const aistudio = (window as any).aistudio;
+    if (aistudio && typeof aistudio.openSelectKey === 'function') {
+      await aistudio.openSelectKey();
+    }
   }
-  return cleaned;
-}
-
-async function ensureApiKey() {
-  const aistudio = (window as any).aistudio;
-  if (aistudio && !(await aistudio.hasSelectedApiKey())) {
-    await aistudio.openSelectKey();
-  }
+  throw error;
 }
 
 export async function generateTrainingProgram(category: string, focus: string) {
   try {
-    // Ensure API key is selected before making call
-    await ensureApiKey();
-    // Create new instance to use the most recent API key
+    // Always create a new GoogleGenAI instance right before making an API call to ensure it uses the current process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    
-    // Upgraded to gemini-3-pro-preview for advanced reasoning in training plans
     const response = await ai.models.generateContent({
-      model: "gemini-3-pro-preview",
-      contents: `Eres un entrenador de fútbol Pro. Crea un plan semanal para categoría ${category}. Enfoque: ${focus}.`,
+      model: "gemini-3-flash-preview",
+      contents: `Genera un programa de entrenamiento semanal detallado para un equipo de fútbol categoría ${category}. El enfoque principal es ${focus}. 
+      Responde en formato JSON con la siguiente estructura: 
+      { "sessions": [ { "day": "Lunes", "title": "...", "activities": ["...", "..."], "duration": "90 min" } ] }`,
       config: {
         responseMimeType: "application/json",
-        // Using responseSchema for better structured output reliability
         responseSchema: {
           type: Type.OBJECT,
           properties: {
@@ -42,10 +32,7 @@ export async function generateTrainingProgram(category: string, focus: string) {
                 properties: {
                   day: { type: Type.STRING },
                   title: { type: Type.STRING },
-                  activities: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                  },
+                  activities: { type: Type.ARRAY, items: { type: Type.STRING } },
                   duration: { type: Type.STRING }
                 },
                 required: ["day", "title", "activities", "duration"]
@@ -57,40 +44,23 @@ export async function generateTrainingProgram(category: string, focus: string) {
       }
     });
 
-    const text = response.text || "";
-    const cleanedText = cleanJsonResponse(text);
-    return JSON.parse(cleanedText);
-  } catch (error: any) {
-    console.error("Gemini Error:", error);
-    // Handle API key selection reset if requested entity not found
-    if (error.message?.includes("Requested entity was not found") || error.message?.includes("API key")) {
-      const aistudio = (window as any).aistudio;
-      if (aistudio) await aistudio.openSelectKey();
-    }
-    throw new Error("La IA está ocupada o requiere verificar la API Key.");
+    return JSON.parse(response.text);
+  } catch (error) {
+    return handleApiError(error);
   }
 }
 
 export async function analyzeFinancialState(transactions: any[]) {
   try {
-    // Ensure API key is selected before making call
-    await ensureApiKey();
-    // Create new instance right before making an API call to ensure it always uses the most up-to-date API key
+    // Always create a new GoogleGenAI instance right before making an API call to ensure it uses the current process.env.API_KEY
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const summary = JSON.stringify(transactions.slice(-10));
+    const summary = JSON.stringify(transactions);
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
-      contents: `Analiza estas finanzas y da 3 consejos cortos: ${summary}`,
+      contents: `Analiza este resumen de transacciones financieras y proporciona 3 recomendaciones clave para mejorar la salud financiera de la academia: ${summary}`,
     });
-    // Accessing .text property directly as per guidelines
     return response.text;
-  } catch (error: any) {
-    console.error("Financial analysis error:", error);
-    // Handle API key selection reset if requested entity not found or key issues occur
-    if (error.message?.includes("Requested entity was not found") || error.message?.includes("API key")) {
-      const aistudio = (window as any).aistudio;
-      if (aistudio) await aistudio.openSelectKey();
-    }
-    return "Análisis no disponible actualmente.";
+  } catch (error) {
+    return handleApiError(error);
   }
 }

@@ -2,10 +2,23 @@
 import React, { useRef, useState } from 'react';
 import { User, SchoolSettings } from '../types';
 import { 
-  Building2, Globe, ShieldCheck, Database, Rocket, 
-  Terminal, Copy, Check, PlayCircle, WifiOff, Users as UsersIcon,
-  Trash2, Plus, Target, GraduationCap, Key, Save, Edit3, X, UserRound,
-  Download, Upload, History, AlertTriangle, FileJson
+  Building2, 
+  Globe, 
+  RefreshCcw, 
+  FileDown,
+  CheckCircle2,
+  Zap,
+  Copy,
+  Share2,
+  Trash2,
+  Upload,
+  AlertTriangle,
+  Plus,
+  ListFilter,
+  Settings,
+  ShieldCheck,
+  Loader2,
+  CloudUpload
 } from 'lucide-react';
 
 interface Props {
@@ -16,263 +29,253 @@ interface Props {
   setSchoolSettings: React.Dispatch<React.SetStateAction<SchoolSettings>>;
   allData: any; 
   onImportData: (data: any) => void;
-  onSeedData: () => void;
+  onSyncPush?: () => void;
+  onActivateCloud?: (key: string) => void;
 }
 
-const SQL_SCRIPT = `-- SCRIPT DEFINITIVO ACADEMIA DEPORTIVA PRO
--- EJECUTA ESTO EN EL SQL EDITOR DE SUPABASE PARA CREAR LA ESTRUCTURA COMPLETA
-
--- 1. TABLA DE ALUMNOS (CAMPOS DISCRIMINADOS)
-CREATE TABLE IF NOT EXISTS students (
-  id TEXT PRIMARY KEY,
-  "fullName" TEXT NOT NULL,
-  dni TEXT NOT NULL,
-  "birthDate" TEXT,
-  age INTEGER,
-  "bloodType" TEXT,
-  lateralidad TEXT, -- DIESTRO, ZURDO, AMBOS
-  school TEXT,
-  grade TEXT,
-  weight FLOAT,
-  height FLOAT,
-  bmi FLOAT,
-  address TEXT,
-  phone TEXT,
-  photo TEXT,
-  observations TEXT,
-  parents JSONB, -- Almacena array [{name, phone, address}]
-  category TEXT,
-  position TEXT,
-  "entryDate" TEXT,
-  "exitDate" TEXT, -- Fecha de Egreso
-  "isPaidUp" BOOLEAN DEFAULT false,
-  "teacherId" TEXT, -- Técnico/Entrenador asignado
-  "trainingType" TEXT,
-  last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 2. TABLA DE DOCENTES (TÉCNICOS)
-CREATE TABLE IF NOT EXISTS teachers (
-  id TEXT PRIMARY KEY,
-  "firstName" TEXT NOT NULL,
-  "lastName" TEXT NOT NULL,
-  category TEXT,
-  age INTEGER,
-  "bloodType" TEXT,
-  address TEXT,
-  phone TEXT,
-  email TEXT,
-  "bankAccount" TEXT,
-  "entryDate" TEXT,
-  photo TEXT,
-  "resumeUrl" TEXT,
-  last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 3. TABLA DE CAJA (INCLUYE APERTURA)
-CREATE TABLE IF NOT EXISTS cash_flow (
-  id TEXT PRIMARY KEY,
-  date TEXT,
-  type TEXT, -- INCOME, OUTCOME, OPENING
-  amount FLOAT,
-  description TEXT,
-  "user" TEXT,
-  last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- 4. TABLA DE PAGOS Y CARTERA
-CREATE TABLE IF NOT EXISTS payments (
-  id TEXT PRIMARY KEY,
-  date TEXT,
-  amount FLOAT,
-  type TEXT,
-  "targetId" TEXT,
-  "targetName" TEXT,
-  description TEXT,
-  status TEXT,
-  last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- DESHABILITAR RLS PARA USO ACADÉMICO / DESARROLLO RÁPIDO
-ALTER TABLE students DISABLE ROW LEVEL SECURITY;
-ALTER TABLE teachers DISABLE ROW LEVEL SECURITY;
-ALTER TABLE cash_flow DISABLE ROW LEVEL SECURITY;
-ALTER TABLE payments DISABLE ROW LEVEL SECURITY;
-`;
-
 const UserSettings: React.FC<Props> = ({ 
-  users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData, onSeedData 
+  users, setUsers, schoolSettings, setSchoolSettings, allData, onImportData, onSyncPush, onActivateCloud
 }) => {
-  const [activeTab, setActiveTab] = useState<'SCHOOL' | 'CLOUD' | 'BACKUP' | 'USERS'>('SCHOOL');
-  const [newItem, setNewItem] = useState('');
-  const logoInputRef = useRef<HTMLInputElement>(null);
-  const importInputRef = useRef<HTMLInputElement>(null);
+  const jsonInputRef = useRef<HTMLInputElement>(null);
+  const [newCategory, setNewCategory] = useState('');
+  const [newPosition, setNewPosition] = useState('');
+  const [showKey, setShowKey] = useState(false);
 
-  const addItem = (type: 'categories' | 'positions') => {
-    if (!newItem.trim()) return;
-    setSchoolSettings(prev => ({ ...prev, [type]: [...prev[type], newItem.trim()] }));
-    setNewItem('');
+  const generateProjectKey = () => {
+    const key = `ACAD-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    if (onActivateCloud) {
+        onActivateCloud(key);
+    } else {
+        setSchoolSettings(prev => ({ ...prev, cloudProjectKey: key }));
+    }
   };
 
-  const removeItem = (type: 'categories' | 'positions', item: string) => {
-    setSchoolSettings(prev => ({ ...prev, [type]: prev[type].filter(i => i !== item) }));
+  const copyKey = () => {
+    if (schoolSettings.cloudProjectKey) {
+      navigator.clipboard.writeText(schoolSettings.cloudProjectKey);
+      alert("Código copiado.");
+    }
   };
 
-  const handleExportBackup = () => {
-    const dataStr = JSON.stringify(allData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    const date = new Date().toISOString().split('T')[0];
-    link.href = url;
-    link.download = `backup_academia_${schoolSettings.name.replace(/\s+/g, '_').toLowerCase()}_${date}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+  const generateInviteLink = () => {
+    if (!schoolSettings.cloudProjectKey) return;
+    const baseUrl = window.location.origin + window.location.pathname;
+    const inviteUrl = `${baseUrl}?project=${schoolSettings.cloudProjectKey}`;
+    navigator.clipboard.writeText(inviteUrl);
+    alert("¡Link de Invitación Copiado!");
   };
 
-  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
+    setSchoolSettings(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleImportJson = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (!confirm("⚠️ ATENCIÓN: Restaurar una copia de seguridad sobrescribirá todos los datos actuales del sistema. ¿Deseas continuar?")) {
-      e.target.value = '';
-      return;
-    }
-
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const json = JSON.parse(event.target?.result as string);
-        onImportData(json);
-        e.target.value = '';
-      } catch (err) {
-        alert("❌ Error al leer el archivo. Asegúrate de que es un respaldo válido de Academia Deportiva Pro.");
-      }
+        const jsonData = JSON.parse(event.target?.result as string);
+        onImportData(jsonData);
+        alert("Backup importado.");
+      } catch (err) { alert("Error al leer archivo."); }
     };
     reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const addCategory = () => {
+    if (newCategory && !schoolSettings.categories.includes(newCategory)) {
+      setSchoolSettings(prev => ({ ...prev, categories: [...prev.categories, newCategory] }));
+      setNewCategory('');
+    }
+  };
+
+  const removeCategory = (cat: string) => {
+    setSchoolSettings(prev => ({ ...prev, categories: prev.categories.filter(c => c !== cat) }));
+  };
+
+  const addPosition = () => {
+    if (newPosition && !schoolSettings.positions.includes(newPosition)) {
+      setSchoolSettings(prev => ({ ...prev, positions: [...prev.positions, newPosition] }));
+      setNewPosition('');
+    }
+  };
+
+  const removePosition = (pos: string) => {
+    setSchoolSettings(prev => ({ ...prev, positions: prev.positions.filter(p => p !== pos) }));
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 pb-20 no-print">
-      <div className="bg-slate-900 rounded-[3rem] p-10 text-white shadow-2xl relative overflow-hidden">
-        <h2 className="text-4xl font-black mb-4 uppercase tracking-tighter">Configuración</h2>
-        <div className="flex flex-wrap gap-4 mt-8">
-           <button onClick={() => setActiveTab('SCHOOL')} className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition ${activeTab === 'SCHOOL' ? 'bg-blue-600' : 'bg-white/10'}`}>Institución</button>
-           <button onClick={() => setActiveTab('USERS')} className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition ${activeTab === 'USERS' ? 'bg-blue-600' : 'bg-white/10'}`}>Usuarios</button>
-           <button onClick={() => setActiveTab('CLOUD')} className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition ${activeTab === 'CLOUD' ? 'bg-blue-600' : 'bg-white/10'}`}>Servicios Nube</button>
-           <button onClick={() => setActiveTab('BACKUP')} className={`px-8 py-3 rounded-2xl font-black text-[10px] uppercase tracking-widest transition ${activeTab === 'BACKUP' ? 'bg-blue-600' : 'bg-white/10'}`}>Copias de Seguridad</button>
+    <div className="max-w-6xl mx-auto space-y-8 pb-12">
+      <div className="bg-slate-900 rounded-[3rem] p-8 md:p-10 text-white shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="relative z-10">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10">
+            <div className="flex items-center gap-5">
+              <div className="bg-blue-600 p-4 rounded-[1.5rem] shadow-xl shadow-blue-500/20">
+                <Globe className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black uppercase tracking-tighter">Nube Multi-Ciudad</h3>
+                <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Sincronización en tiempo real</p>
+              </div>
+            </div>
+            {!schoolSettings.cloudProjectKey ? (
+              <button onClick={generateProjectKey} className="w-full md:w-auto bg-blue-600 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-500 transition shadow-xl active:scale-95">
+                Activar Nube Ahora
+              </button>
+            ) : (
+              <div className="flex flex-wrap gap-2 w-full md:w-auto">
+                 <button onClick={generateInviteLink} className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-6 py-4 rounded-2xl transition flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
+                    <Share2 className="w-4 h-4" /> Enviar Link
+                 </button>
+                 <button onClick={onSyncPush} className="flex-1 md:flex-none bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-4 rounded-2xl transition flex items-center justify-center gap-2 text-xs font-black uppercase tracking-widest">
+                    <CloudUpload className="w-4 h-4" /> Sincronizar
+                 </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] space-y-6">
+              <div>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">ID del Proyecto</label>
+                <div className="relative">
+                  <input 
+                    type={showKey ? "text" : "password"} 
+                    value={schoolSettings.cloudProjectKey || ''}
+                    readOnly
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm font-black text-blue-400 outline-none"
+                    placeholder="Genera una llave arriba"
+                  />
+                  <button onClick={() => setShowKey(!showKey)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition">
+                    <Zap className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <div className="flex items-start gap-3 bg-blue-600/10 p-5 rounded-2xl border border-blue-500/20">
+                <ShieldCheck className="w-5 h-5 text-blue-400 shrink-0" />
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Tus datos están protegidos por este código. Úsalo para conectar tu celular u otra computadora en cualquier parte del mundo.
+                </p>
+              </div>
+              {schoolSettings.cloudProjectKey && (
+                  <button onClick={() => handleUpdateSetting('cloudProjectKey', '')} className="text-[10px] font-black uppercase text-red-400 hover:underline">Eliminar Llave y Desconectar</button>
+              )}
+            </div>
+
+            <div className="space-y-4">
+               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
+                <div className="bg-emerald-500/10 p-3 rounded-xl"><CheckCircle2 className="w-6 h-6 text-emerald-500" /></div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Estado de Red</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">{schoolSettings.cloudProjectKey ? 'VINCULADO A INTERNET' : 'MODO LOCAL'}</p>
+                </div>
+              </div>
+               <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex items-center gap-5">
+                <div className="bg-amber-500/10 p-3 rounded-xl"><RefreshCcw className="w-6 h-6 text-amber-500" /></div>
+                <div>
+                  <h4 className="text-sm font-black uppercase tracking-tight">Carga Automática</h4>
+                  <p className="text-[10px] text-slate-500 font-bold">Cada vez que guardas, la nube se actualiza.</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {activeTab === 'SCHOOL' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-in fade-in duration-500">
-          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
-            <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3"><Building2 className="w-7 h-7 text-blue-600" /> Identidad Visual</h3>
-            <div className="grid grid-cols-2 gap-4">
-               <input value={schoolSettings.name} onChange={e => setSchoolSettings(prev => ({...prev, name: e.target.value}))} className="col-span-2 px-6 py-4 bg-slate-50 border rounded-2xl font-black uppercase text-sm" placeholder="Nombre Academia" />
-               <input value={schoolSettings.nit} onChange={e => setSchoolSettings(prev => ({...prev, nit: e.target.value}))} className="px-6 py-4 bg-slate-50 border rounded-2xl font-black text-sm" placeholder="NIT" />
-               <input value={schoolSettings.phone} onChange={e => setSchoolSettings(prev => ({...prev, phone: e.target.value}))} className="px-6 py-4 bg-slate-50 border rounded-2xl font-black text-sm" placeholder="Teléfono" />
-               <div className="col-span-2 border-2 border-dashed border-slate-200 p-8 rounded-3xl flex items-center justify-between">
-                  <div><p className="text-[10px] font-black uppercase text-slate-400">Logotipo Oficial</p><button onClick={() => logoInputRef.current?.click()} className="mt-2 text-blue-600 font-bold text-xs uppercase hover:underline">Cambiar Imagen</button></div>
-                  <div className="w-20 h-20 bg-slate-50 rounded-2xl overflow-hidden flex items-center justify-center border">{schoolSettings.logo ? <img src={schoolSettings.logo} className="w-full h-full object-contain p-2" /> : <Building2 className="w-8 h-8 text-slate-200" />}</div>
-               </div>
-               <input type="file" ref={logoInputRef} className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) { const r = new FileReader(); r.onloadend = () => setSchoolSettings(prev => ({ ...prev, logo: r.result as string })); r.readAsDataURL(f); } }} />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+            <h3 className="text-xl font-black text-slate-800 flex items-center gap-3 mb-8 uppercase tracking-tighter">
+              <Building2 className="w-6 h-6 text-blue-600" /> Datos de la Academia
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="md:col-span-2">
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Nombre</label>
+                <input type="text" value={schoolSettings.name} onChange={(e) => handleUpdateSetting('name', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">NIT</label>
+                <input type="text" value={schoolSettings.nit} onChange={(e) => handleUpdateSetting('nit', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black uppercase text-slate-400 mb-2">Email Sincronización</label>
+                <input type="email" value={schoolSettings.linkedEmail || ''} onChange={(e) => handleUpdateSetting('linkedEmail', e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none" />
+              </div>
             </div>
-            <button onClick={onSeedData} className="w-full py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition">Generar Datos de Prueba</button>
           </div>
 
-          <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-             <div>
-                <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 mb-6"><Target className="w-7 h-7 text-blue-600" /> Categorías Deportivas</h3>
-                <div className="flex flex-wrap gap-2 mb-4">{schoolSettings.categories.map(c => <span key={c} className="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2">{c} <X className="w-3 h-3 cursor-pointer text-red-500" onClick={() => removeItem('categories', c)} /></span>)}</div>
-                <div className="flex gap-2"><input value={newItem} onChange={e => setNewItem(e.target.value)} className="flex-1 px-5 py-3 bg-slate-50 border rounded-2xl text-xs font-bold" placeholder="Nueva..." /><button onClick={() => addItem('categories')} className="p-3 bg-slate-900 text-white rounded-2xl"><Plus className="w-4 h-4" /></button></div>
-             </div>
-             <div>
-                <h3 className="text-xl font-black uppercase tracking-tighter flex items-center gap-3 mb-6"><Edit3 className="w-7 h-7 text-blue-600" /> Posiciones de Juego</h3>
-                <div className="flex flex-wrap gap-2">{schoolSettings.positions.map(p => <span key={p} className="bg-slate-100 px-4 py-2 rounded-xl text-[10px] font-black uppercase flex items-center gap-2">{p} <X className="w-3 h-3 cursor-pointer text-red-500" onClick={() => removeItem('positions', p)} /></span>)}</div>
-             </div>
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'BACKUP' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-in slide-in-from-bottom-4 duration-500">
-           <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-xl flex flex-col items-center text-center space-y-6">
-              <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-[2rem] flex items-center justify-center"><Download className="w-10 h-10" /></div>
-              <div className="space-y-2">
-                 <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900">Exportar Respaldo</h3>
-                 <p className="text-xs text-slate-500 font-medium">Descarga un archivo .json con toda la base de datos local actual para seguridad extra.</p>
-              </div>
-              <button 
-                onClick={handleExportBackup}
-                className="w-full py-5 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-700 transition shadow-xl shadow-blue-100 flex items-center justify-center gap-3"
-              >
-                 <FileJson className="w-5 h-5" /> Descargar Copia
-              </button>
-           </div>
-
-           <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-xl flex flex-col items-center text-center space-y-6">
-              <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-[2rem] flex items-center justify-center"><Upload className="w-10 h-10" /></div>
-              <div className="space-y-2">
-                 <h3 className="text-2xl font-black uppercase tracking-tighter text-slate-900">Restaurar Sistema</h3>
-                 <p className="text-xs text-slate-500 font-medium">Carga un archivo de respaldo previo para recuperar toda tu información en este dispositivo.</p>
-              </div>
-              <button 
-                onClick={() => importInputRef.current?.click()}
-                className="w-full py-5 bg-emerald-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-emerald-700 transition shadow-xl shadow-emerald-100 flex items-center justify-center gap-3"
-              >
-                 <History className="w-5 h-5" /> Cargar Respaldo
-              </button>
-              <input type="file" ref={importInputRef} className="hidden" accept=".json" onChange={handleImportBackup} />
-           </div>
-
-           <div className="md:col-span-2 bg-amber-50 border-2 border-amber-200 p-8 rounded-[2.5rem] flex gap-6 items-start">
-              <div className="bg-amber-100 p-4 rounded-2xl text-amber-600"><AlertTriangle className="w-8 h-8" /></div>
-              <div className="space-y-2">
-                 <h4 className="text-sm font-black uppercase text-amber-800 tracking-widest">Información Importante sobre Restauración</h4>
-                 <p className="text-xs text-amber-700 font-medium leading-relaxed">
-                    Al cargar un archivo de respaldo, se **borrará permanentemente** cualquier dato nuevo que no esté en el archivo. Se recomienda realizar una descarga de copia antes de proceder con una restauración.
-                 </p>
-              </div>
-           </div>
-        </div>
-      )}
-
-      {activeTab === 'CLOUD' && (
-        <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-10">
-           <div className="flex items-center justify-between"><h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><Globe className="w-8 h-8 text-blue-600" /> Supabase Cloud Backend</h3><div className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl text-[10px] font-black uppercase border border-emerald-100">Configuración Activa</div></div>
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div><label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">URL de Proyecto</label><input type="text" value={schoolSettings.supabaseUrl || ''} onChange={e => setSchoolSettings(prev => ({...prev, supabaseUrl: e.target.value}))} className="w-full px-6 py-4 bg-slate-50 border rounded-2xl font-bold outline-none" /></div>
-              <div><label className="block text-[10px] font-black uppercase text-slate-400 mb-2 ml-1">API Key Pública (Anon)</label><input type="password" value={schoolSettings.supabaseKey || ''} onChange={e => setSchoolSettings(prev => ({...prev, supabaseKey: e.target.value}))} className="w-full px-6 py-4 bg-slate-50 border rounded-2xl font-bold outline-none" /></div>
-           </div>
-           <div className="bg-slate-900 text-white p-10 rounded-[3rem] space-y-6 shadow-2xl">
-              <div className="flex items-center gap-3 border-b border-white/10 pb-4"><Terminal className="w-8 h-8 text-blue-400" /><div><h4 className="font-black uppercase tracking-tight text-xl">Script de Estructura SQL</h4><p className="text-[10px] opacity-60 uppercase font-black">Crea todas las tablas con DNI, Egreso y Acudientes</p></div></div>
-              <div className="bg-slate-800 p-6 rounded-2xl font-mono text-[11px] text-blue-200 h-64 overflow-y-auto border border-white/5 shadow-inner"><pre>{SQL_SCRIPT}</pre></div>
-              <div className="flex justify-between items-center"><button onClick={() => { navigator.clipboard.writeText(SQL_SCRIPT); alert("✅ Copiado. Pégalo en el SQL Editor de Supabase."); }} className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition flex items-center gap-3"><Copy className="w-4 h-4" /> Copiar Script SQL</button><div className="flex items-center gap-2 text-blue-400 text-[10px] font-black uppercase"><ShieldCheck className="w-4 h-4" /> Versión 5.0 Validada</div></div>
-           </div>
-        </div>
-      )}
-
-      {activeTab === 'USERS' && (
-        <div className="bg-white p-10 rounded-[3rem] border border-slate-200 shadow-sm space-y-8">
-           <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-black uppercase tracking-tighter flex items-center gap-3"><UsersIcon className="w-8 h-8 text-blue-600" /> Gestión de Acceso</h3>
-           </div>
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {users.map(user => (
-                <div key={user.id} className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex items-center justify-between group">
-                   <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-blue-600 shadow-sm"><UserRound className="w-6 h-6" /></div>
-                      <div><p className="font-black text-slate-800 uppercase text-sm">{user.username}</p><p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{user.role}</p></div>
-                   </div>
-                   {user.id !== '1' && <button onClick={() => setUsers(users.filter(u => u.id !== user.id))} className="p-2 text-red-400 opacity-0 group-hover:opacity-100 transition hover:text-red-600"><Trash2 className="w-4 h-4" /></button>}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                     <ListFilter className="w-4 h-4" /> Categorías
+                  </h4>
                 </div>
-              ))}
+                <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
+                   {schoolSettings.categories.map(cat => (
+                      <div key={cat} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                         <span className="text-xs font-bold text-slate-700">{cat}</span>
+                         <button onClick={() => removeCategory(cat)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                   ))}
+                </div>
+                <div className="flex gap-2">
+                   <input value={newCategory} onChange={e => setNewCategory(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Nueva..." />
+                   <button onClick={addCategory} className="bg-blue-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                </div>
+             </div>
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                <div className="flex justify-between items-center mb-6">
+                  <h4 className="text-sm font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                     <Settings className="w-4 h-4" /> Posiciones
+                  </h4>
+                </div>
+                <div className="space-y-2 mb-4 max-h-48 overflow-y-auto pr-2">
+                   {schoolSettings.positions.map(pos => (
+                      <div key={pos} className="flex justify-between items-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                         <span className="text-xs font-bold text-slate-700">{pos}</span>
+                         <button onClick={() => removePosition(pos)} className="text-slate-300 hover:text-red-500"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </div>
+                   ))}
+                </div>
+                <div className="flex gap-2">
+                   <input value={newPosition} onChange={e => setNewPosition(e.target.value)} className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none" placeholder="Nueva..." />
+                   <button onClick={addPosition} className="bg-purple-600 text-white p-2 rounded-xl"><Plus className="w-4 h-4" /></button>
+                </div>
+             </div>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+           <div className="bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-xl">
+                <h3 className="text-sm font-black uppercase mb-4 tracking-tighter">Backup Manual</h3>
+                <div className="space-y-3">
+                  <button onClick={() => {
+                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(allData));
+                    const anchor = document.createElement('a');
+                    anchor.setAttribute("href", dataStr);
+                    anchor.setAttribute("download", `BACKUP_${new Date().toISOString().split('T')[0]}.json`);
+                    anchor.click();
+                  }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">
+                    Descargar Backup
+                  </button>
+                  <button onClick={() => jsonInputRef.current?.click()} className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition flex items-center justify-center gap-2">
+                    <Upload className="w-4 h-4" /> Cargar Backup
+                  </button>
+                  <input type="file" ref={jsonInputRef} onChange={handleImportJson} accept=".json" className="hidden" />
+                </div>
+                <div className="mt-6 flex items-start gap-2 text-left bg-amber-50 p-4 rounded-xl border border-amber-100">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[9px] text-amber-800 font-bold leading-relaxed">
+                    Al cargar un backup se borrará todo lo que tienes actualmente.
+                  </p>
+                </div>
            </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };
