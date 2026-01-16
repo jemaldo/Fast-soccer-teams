@@ -31,14 +31,14 @@ export interface Student {
   isPaidUp: boolean; 
   teacherId?: string;
   trainingType: 'Formativa' | 'Elite';
-  lastUpdated?: string; // Para control de versiones
+  lastUpdated?: string;
 }
 
 export interface Teacher {
   id: string;
   firstName: string;
   lastName: string;
-  categories: string[]; // Ahora es un array para múltiples categorías
+  categories: string[];
   age: number;
   bloodType: BloodType;
   address: string;
@@ -93,6 +93,9 @@ export interface User {
   id: string;
   username: string;
   role: 'ADMIN' | 'COACH' | 'SECRETARY';
+  password?: string;
+  secretQuestion?: string;
+  secretAnswer?: string;
 }
 
 export interface SchoolSettings {
@@ -102,13 +105,13 @@ export interface SchoolSettings {
   phone: string;
   email: string;
   logo?: string;
-  slogan?: string; // Nuevo campo para el eslogan
+  slogan?: string;
   categories: string[];
   positions: string[];
   googleDriveLinked?: boolean;
   linkedEmail?: string;
   lastCloudSync?: string;
-  cloudProjectKey?: string; // Código para compartir entre ciudades
+  cloudProjectKey?: string;
   lastSyncTimestamp?: string;
 }
 
