@@ -4,7 +4,8 @@ import { Student, Teacher, Payment, BloodType, SchoolSettings } from '../types';
 import { 
   Plus, Search, Edit2, Trash2, CreditCard, UserCheck, UserX, Printer, FileUp, FileDown, History, X as CloseIcon, 
   Calendar, Camera, User, Eye, CheckCircle, AlertTriangle, CalendarCheck, Check, ChevronDown, Info, Medal, 
-  Users as UsersIcon, CheckCircle2, Ruler, Weight, School as SchoolIcon, GraduationCap, MapPin, Phone as PhoneIcon, AlignLeft
+  Users as UsersIcon, CheckCircle2, Ruler, Weight, School as SchoolIcon, GraduationCap, MapPin, Phone as PhoneIcon, AlignLeft,
+  Banknote, CalendarDays, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { parseExcelFile, downloadTemplate } from '../services/excelService';
 
@@ -117,6 +118,46 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
     setPhotoPreview(null);
   };
 
+  const isMonthAlreadyPaid = (monthIndex: number) => {
+    if (!paymentModalStudent) return false;
+    const monthName = new Date(paymentYear, monthIndex).toLocaleString('es-ES', { month: 'long' });
+    return payments.some(p => 
+      p.targetId === paymentModalStudent.id && 
+      p.type === 'STUDENT_MONTHLY' && 
+      p.description.toLowerCase().includes(monthName.toLowerCase()) && 
+      p.description.includes(paymentYear.toString())
+    );
+  };
+
+  const toggleMonthSelection = (monthIndex: number) => {
+    if (isMonthAlreadyPaid(monthIndex)) return;
+    setSelectedMonths(prev => prev.includes(monthIndex) ? prev.filter(m => m !== monthIndex) : [...prev, monthIndex]);
+  };
+
+  const processBatchPayment = () => {
+    if (!paymentModalStudent || selectedMonths.length === 0) return;
+    
+    const newPayments: Payment[] = selectedMonths.map(monthIndex => {
+      const monthName = new Date(paymentYear, monthIndex).toLocaleString('es-ES', { month: 'long' });
+      return {
+        id: (Date.now() + Math.random()).toString(),
+        date: new Date().toISOString().split('T')[0],
+        amount: monthlyAmount,
+        type: 'STUDENT_MONTHLY',
+        targetId: paymentModalStudent.id,
+        targetName: paymentModalStudent.fullName,
+        description: `Mensualidad - ${monthName} de ${paymentYear}`,
+        status: 'PAID'
+      };
+    });
+
+    setPayments([...payments, ...newPayments]);
+    setStudents(students.map(s => s.id === paymentModalStudent.id ? { ...s, isPaidUp: true } : s));
+    alert(`Se han registrado ${newPayments.length} mensualidades con éxito.`);
+    setPaymentModalStudent(null);
+    setSelectedMonths([]);
+  };
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -189,8 +230,9 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex justify-end gap-1">
-                    <button onClick={() => setHistoryStudentId(student.id)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><History className="w-4 h-4" /></button>
-                    <button onClick={() => { setSelectedStudent(student); setPhotoPreview(student.photo || null); setShowForm(true); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 className="w-4 h-4" /></button>
+                    <button onClick={() => setPaymentModalStudent(student)} title="Registrar Pago" className="p-2 text-emerald-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><CreditCard className="w-4 h-4" /></button>
+                    <button onClick={() => setHistoryStudentId(student.id)} title="Historial" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><History className="w-4 h-4" /></button>
+                    <button onClick={() => { setSelectedStudent(student); setPhotoPreview(student.photo || null); setShowForm(true); }} title="Editar" className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 className="w-4 h-4" /></button>
                   </div>
                 </td>
               </tr>
@@ -198,6 +240,90 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
           </tbody>
         </table>
       </div>
+
+      {/* MODAL PAGO DE MENSUALIDAD (RESTAURADO) */}
+      {paymentModalStudent && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
+            <div className="p-8 border-b flex justify-between items-center bg-emerald-600 text-white shrink-0">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center"><Banknote className="w-6 h-6" /></div>
+                <div>
+                  <h3 className="text-lg font-black uppercase tracking-tight">Recaudo Mensualidad</h3>
+                  <p className="text-xs font-bold text-emerald-100">{paymentModalStudent.fullName}</p>
+                </div>
+              </div>
+              <button onClick={() => setPaymentModalStudent(null)} className="p-2 hover:bg-emerald-700 rounded-full transition"><CloseIcon /></button>
+            </div>
+            
+            <div className="p-8 flex-1 space-y-8">
+              <div className="flex justify-between items-center gap-4">
+                <div className="flex-1">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Año Fiscal</label>
+                  <div className="flex items-center gap-3">
+                    <button onClick={() => setPaymentYear(prev => prev - 1)} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><ChevronLeft className="w-4 h-4" /></button>
+                    <span className="text-lg font-black text-slate-800">{paymentYear}</span>
+                    <button onClick={() => setPaymentYear(prev => prev + 1)} className="p-2 bg-slate-100 rounded-lg hover:bg-slate-200"><ChevronRight className="w-4 h-4" /></button>
+                  </div>
+                </div>
+                <div className="flex-1 text-right">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Monto Mensual</label>
+                  <input 
+                    type="number" 
+                    value={monthlyAmount} 
+                    onChange={(e) => setMonthlyAmount(Number(e.target.value))}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-black text-emerald-600 outline-none text-right"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 flex justify-between items-center">
+                  <span>Seleccionar Meses</span>
+                  <span className="text-emerald-600">{selectedMonths.length} seleccionados</span>
+                </label>
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const monthName = new Date(0, i).toLocaleString('es-ES', { month: 'short' });
+                    const isPaid = isMonthAlreadyPaid(i);
+                    const isSelected = selectedMonths.includes(i);
+                    return (
+                      <button 
+                        key={i} 
+                        disabled={isPaid}
+                        onClick={() => toggleMonthSelection(i)}
+                        className={`
+                          py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest border transition-all
+                          ${isPaid ? 'bg-emerald-50 border-emerald-100 text-emerald-600 opacity-60 cursor-not-allowed' : 
+                            isSelected ? 'bg-blue-600 border-blue-500 text-white shadow-lg scale-105' : 
+                            'bg-slate-50 border-slate-100 text-slate-400 hover:border-blue-300'}
+                        `}
+                      >
+                        {monthName}
+                        {isPaid && <Check className="w-3 h-3 mx-auto mt-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="bg-slate-900 rounded-2xl p-6 text-white flex justify-between items-center shadow-xl">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total a Pagar</p>
+                  <p className="text-2xl font-black text-emerald-400">${(selectedMonths.length * monthlyAmount).toLocaleString()}</p>
+                </div>
+                <button 
+                  onClick={processBatchPayment}
+                  disabled={selectedMonths.length === 0}
+                  className="bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-700 text-white px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition shadow-lg"
+                >
+                  Registrar Pago
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Historial Modal */}
       {historyStudentId && (
@@ -284,7 +410,7 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
         </div>
       )}
 
-      {/* FORMULARIO COMPLETO DE ALUMNO (RESTAURADO) */}
+      {/* FORMULARIO COMPLETO DE ALUMNO */}
       {showForm && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-5xl max-h-[95vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom-8 duration-500">
