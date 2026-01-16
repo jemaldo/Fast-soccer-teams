@@ -83,8 +83,12 @@ export interface SquadPlayer {
 export interface MatchSquad {
   id: string;
   date: string;
+  time: string;
+  location: string;
   opponent: string;
   category: string;
+  tournamentType: string;
+  uniform: string;
   players: SquadPlayer[];
   lastUpdated?: string;
 }

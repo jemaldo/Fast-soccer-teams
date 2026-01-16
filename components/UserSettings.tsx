@@ -72,6 +72,28 @@ const UserSettings: React.FC<Props> = ({
     }
   };
 
+  const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const json = JSON.parse(event.target?.result as string);
+          if (confirm("¿Estás seguro de restaurar este backup? Se sobrescribirán todos los datos actuales.")) {
+            onImportData(json);
+            alert("✅ Base de datos restaurada con éxito.");
+          }
+        } catch (err) {
+          alert("❌ Error: El archivo seleccionado no es un backup válido.");
+          console.error(err);
+        }
+      };
+      reader.readAsText(file);
+    }
+    // Resetear el input para permitir cargar el mismo archivo dos veces si es necesario
+    if (e.target) e.target.value = '';
+  };
+
   const handleUpdateSetting = (field: keyof SchoolSettings, value: any) => {
     setSchoolSettings(prev => ({ ...prev, [field]: value }));
   };
@@ -280,7 +302,7 @@ const UserSettings: React.FC<Props> = ({
                     anchor.click();
                   }} className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition shadow-lg">Descargar Backup</button>
                   <button onClick={() => jsonInputRef.current?.click()} className="w-full py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2"><Upload className="w-4 h-4" /> Cargar Backup</button>
-                  <input type="file" ref={jsonInputRef} className="hidden" />
+                  <input type="file" ref={jsonInputRef} onChange={handleImportBackup} accept=".json" className="hidden" />
                 </div>
            </div>
         </div>
