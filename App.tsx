@@ -80,7 +80,6 @@ const App: React.FC = () => {
     
     try {
       if (push) {
-        // LITE SYNC: Removemos fotos antes de subir para evitar el error de "PESADO"
         const liteStudents = students.map(({ photo, ...rest }) => rest);
         const liteTeachers = teachers.map(({ photo, resumeUrl, ...rest }) => rest);
 
@@ -105,7 +104,7 @@ const App: React.FC = () => {
         
         setHasUnsavedChanges(false);
         setSchoolSettings(prev => ({ ...prev, lastSyncTimestamp: allData.lastGlobalUpdate }));
-        alert("✅ NUBE ACTUALIZADA (Modo Ligero).\nLos datos vitales están sincronizados. Las fotos permanecen en este equipo por seguridad.");
+        alert("✅ NUBE ACTUALIZADA.");
       } else {
         const response = await fetch(CLOUD_URL);
         if (response.ok) {
@@ -121,7 +120,6 @@ const App: React.FC = () => {
       }
     } catch (e: any) {
       setSyncError("Fallo de conexión");
-      if (push) alert("❌ Error de Nube: Posiblemente los datos son demasiado pesados para el servidor gratuito.");
     } finally {
       setTimeout(() => setIsSyncing(false), 800);
     }
@@ -166,7 +164,6 @@ const App: React.FC = () => {
   const handleImportAllData = (data: any) => {
     if (!data) return;
     if (data.students) {
-      // Al importar de la nube, preservamos las fotos locales si ya existen
       setStudents(prev => {
         return data.students.map((newS: Student) => {
           const localS = prev.find(ls => ls.id === newS.id);
@@ -196,7 +193,6 @@ const App: React.FC = () => {
       const data = await response.json();
       handleImportAllData(data);
       setRemoteUpdateAvailable(false);
-      alert("✅ Datos actualizados desde la nube.");
     } catch (e) {
       alert("Error al descargar.");
     } finally {
@@ -222,7 +218,11 @@ const App: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
         <div className="bg-white p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600"></div>
-          <Trophy className="w-16 h-16 text-blue-600 mx-auto mb-6" />
+          {schoolSettings.logo ? (
+             <img src={schoolSettings.logo} className="w-20 h-20 object-contain mx-auto mb-6" />
+          ) : (
+             <Trophy className="w-16 h-16 text-blue-600 mx-auto mb-6" />
+          )}
           <h1 className="text-2xl font-black mb-1 text-slate-900 uppercase tracking-tighter">{schoolSettings.name}</h1>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">{APP_VERSION}</p>
           <div className="space-y-3">
@@ -243,7 +243,10 @@ const App: React.FC = () => {
     <div className="min-h-screen flex bg-slate-50 overflow-hidden relative">
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transition-transform lg:relative lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-6 h-full flex flex-col">
-          <div className="flex items-center gap-3 mb-10"><Trophy className="w-6 h-6 text-blue-500" /><h1 className="font-black uppercase truncate text-sm tracking-tighter">{schoolSettings.name}</h1></div>
+          <div className="flex items-center gap-3 mb-10">
+            {schoolSettings.logo ? <img src={schoolSettings.logo} className="w-8 h-8 object-contain bg-white rounded-lg p-1" /> : <Trophy className="w-6 h-6 text-blue-500" />}
+            <h1 className="font-black uppercase truncate text-sm tracking-tighter">{schoolSettings.name}</h1>
+          </div>
           <nav className="space-y-1 flex-1">
             {NAV_ITEMS.map((item) => (
               <button key={item.id} onClick={() => setCurrentView(item.id as AppView)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${currentView === item.id ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/40' : 'text-slate-400 hover:bg-slate-800'}`}>
@@ -251,44 +254,23 @@ const App: React.FC = () => {
               </button>
             ))}
           </nav>
-          <div className="mt-auto pt-6 border-t border-slate-800 text-center">
-             <div className="flex items-center justify-center gap-2 mb-2">
-                {isOnline ? <Wifi className="w-3 h-3 text-emerald-500" /> : <WifiOff className="w-3 h-3 text-red-500" />}
-                <p className="text-[9px] font-black text-blue-400">{APP_VERSION}</p>
-             </div>
-             <p className="text-[9px] font-bold text-slate-500 leading-tight">Fastsystems Jesus Maldonado Castro</p>
-          </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30">
+        <header className="bg-white border-b border-slate-200 px-4 md:px-6 py-4 flex items-center justify-between sticky top-0 z-30 no-print">
           <div className="flex items-center gap-3">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="lg:hidden p-2 text-slate-600"><Menu /></button>
             <h2 className="text-sm md:text-lg font-black text-slate-900 uppercase tracking-tight truncate">
               {NAV_ITEMS.find(i => i.id === currentView)?.label}
             </h2>
           </div>
-          
           <div className="flex items-center gap-2">
-             {remoteUpdateAvailable && (
-               <button onClick={applyRemoteUpdate} className="flex items-center gap-2 bg-amber-500 text-white px-3 py-2 rounded-full text-[9px] font-black uppercase animate-bounce shadow-lg">
-                 <Zap className="w-3 h-3" /> CAMBIOS DISPONIBLES
-               </button>
-             )}
-             
              {schoolSettings.cloudProjectKey && isOnline && (
                <button onClick={() => syncWithCloud(true)} disabled={isSyncing} className={`flex items-center gap-2 font-black text-[9px] px-3 py-2.5 rounded-full transition shadow-lg ${hasUnsavedChanges ? 'bg-blue-600 text-white' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
                   {isSyncing ? <Loader2 className="w-3 h-3 animate-spin" /> : <CloudUpload className="w-3 h-3" />}
-                  <span>{isSyncing ? 'SINCRONIZANDO...' : (hasUnsavedChanges ? 'SUBIR A NUBE' : 'NUBE AL DÍA')}</span>
+                  <span>{isSyncing ? '...' : (hasUnsavedChanges ? 'SUBIR' : 'NUBE')}</span>
                 </button>
-             )}
-
-             {syncError && (
-               <div className="bg-red-100 text-red-600 px-3 py-1.5 rounded-full flex items-center gap-1">
-                 <AlertCircle className="w-3 h-3" />
-                 <span className="text-[8px] font-black uppercase">{syncError}</span>
-               </div>
              )}
           </div>
         </header>
@@ -297,7 +279,7 @@ const App: React.FC = () => {
             {currentView === 'DASHBOARD' && <Dashboard schoolSettings={schoolSettings} students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} />}
             {currentView === 'STUDENTS' && <StudentManager students={students} setStudents={setStudents} payments={payments} setPayments={setPayments} schoolSettings={schoolSettings} teachers={teachers} />}
             {currentView === 'TEACHERS' && <TeacherManager teachers={teachers} setTeachers={setTeachers} payments={payments} setPayments={setPayments} schoolSettings={schoolSettings} />}
-            {currentView === 'FINANCE' && <FinanceManager cashFlow={cashFlow} setCashFlow={setCashFlow} />}
+            {currentView === 'FINANCE' && <FinanceManager cashFlow={cashFlow} setCashFlow={setCashFlow} schoolSettings={schoolSettings} />}
             {currentView === 'MATCHES' && <MatchManager squads={squads} setSquads={setSquads} students={students} schoolSettings={schoolSettings} />}
             {currentView === 'TRAINING' && <TrainingManager />}
             {currentView === 'REPORTS' && <ReportManager students={students} teachers={teachers} payments={payments} cashFlow={cashFlow} schoolSettings={schoolSettings} />}

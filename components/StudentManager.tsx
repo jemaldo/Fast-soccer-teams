@@ -3,7 +3,8 @@ import React, { useState, useRef, useMemo } from 'react';
 import { Student, Teacher, Payment, BloodType, SchoolSettings } from '../types';
 import { 
   Plus, Search, Edit2, Trash2, X as CloseIcon, Camera, User, 
-  CheckCircle, AlertTriangle, Info, Users as UsersIcon, Save
+  CheckCircle, AlertTriangle, Info, Users as UsersIcon, Save,
+  UserCheck
 } from 'lucide-react';
 
 const compressImage = (base64Str: string): Promise<string> => {
@@ -111,6 +112,12 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, schoolSettings
     });
   }, [students, searchTerm, categoryFilter]);
 
+  const getTeacherName = (id?: string) => {
+    if (!id) return 'Sin asignar';
+    const teacher = teachers.find(t => t.id === id);
+    return teacher ? `${teacher.firstName} ${teacher.lastName}` : 'No encontrado';
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm flex flex-wrap gap-4 justify-between items-center">
@@ -135,6 +142,7 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, schoolSettings
             <tr>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Atleta</th>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Categoría / Posición</th>
+              <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Entrenador</th>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Médico / IMC</th>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Estado</th>
               <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Gestión</th>
@@ -158,6 +166,14 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, schoolSettings
                   <div className="space-y-1">
                     <span className="text-[10px] font-black text-blue-600 uppercase bg-blue-50 px-2 py-1 rounded-md">{student.category}</span>
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">{student.position}</span>
+                  </div>
+                </td>
+                <td className="px-8 py-5">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-3 h-3 text-emerald-500" />
+                    <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">
+                      {getTeacherName(student.teacherId)}
+                    </span>
                   </div>
                 </td>
                 <td className="px-8 py-5">
@@ -280,7 +296,11 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, schoolSettings
                           <option value="Formativa">Formativa</option>
                           <option value="Elite">Elite / Selección</option>
                         </select>
-                        <input name="entryDate" type="date" defaultValue={selectedStudent?.entryDate || new Date().toISOString().split('T')[0]} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none" />
+                        <select name="teacherId" defaultValue={selectedStudent?.teacherId} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none">
+                          <option value="">Seleccionar Entrenador</option>
+                          {teachers.map(t => <option key={t.id} value={t.id}>{t.firstName} {t.lastName}</option>)}
+                        </select>
+                        <input name="entryDate" type="date" defaultValue={selectedStudent?.entryDate || new Date().toISOString().split('T')[0]} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold outline-none col-span-2" />
                       </div>
                     </div>
                   </div>
