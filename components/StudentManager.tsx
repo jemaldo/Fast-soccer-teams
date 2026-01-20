@@ -4,7 +4,7 @@ import {
   Plus, Search, Edit2, Trash2, CreditCard, UserCheck, UserX, Printer, FileUp, FileDown, History, X as CloseIcon, 
   Calendar, Camera, User, Eye, CheckCircle, AlertTriangle, CheckCircle2, Ruler, Weight, School as SchoolIcon, GraduationCap, MapPin, Phone as PhoneIcon, AlignLeft,
   Banknote, CalendarDays, ChevronLeft, ChevronRight, UserPlus, Users as UsersIcon, Activity, Stethoscope,
-  Medal, Check, Download, ShieldCheck
+  Medal, Check, Download, ShieldCheck, AlertCircle, X
 } from 'lucide-react';
 import { parseExcelFile, downloadTemplate } from '../services/excelService';
 
@@ -32,6 +32,11 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
   const [selectedMonths, setSelectedMonths] = useState<number[]>([]);
   const [paymentYear, setPaymentYear] = useState<number>(new Date().getFullYear());
   const [monthlyAmount, setMonthlyAmount] = useState<number>(50000);
+
+  // Estados para nuevas funcionalidades
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
 
   const excelInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
@@ -172,6 +177,32 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
     setSelectedMonths([]);
   };
 
+  // Funciones de gestión mejorada
+  const confirmDeleteStudent = () => {
+    if (studentToDelete) {
+      setStudents(prev => prev.filter(s => s.id !== studentToDelete.id));
+      setStudentToDelete(null);
+    }
+  };
+
+  const confirmDeletePayment = () => {
+    if (paymentToDelete) {
+      setPayments(prev => prev.filter(p => p.id !== paymentToDelete.id));
+      setPaymentToDelete(null);
+    }
+  };
+
+  const handleUpdatePayment = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingPayment) return;
+    const formData = new FormData(e.currentTarget);
+    const amount = Number(formData.get('amount'));
+    const description = formData.get('description') as string;
+
+    setPayments(prev => prev.map(p => p.id === editingPayment.id ? { ...p, amount, description } : p));
+    setEditingPayment(null);
+  };
+
   const filteredStudents = useMemo(() => {
     return students.filter(s => {
       const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -262,6 +293,7 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
                     <button onClick={() => setPaymentModalStudent(student)} title="Recaudar Pago" className="p-2.5 text-emerald-600 hover:bg-emerald-50 rounded-xl transition shadow-sm"><CreditCard className="w-4.5 h-4.5" /></button>
                     <button onClick={() => setHistoryStudentId(student.id)} title="Ver Historial" className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"><History className="w-4.5 h-4.5" /></button>
                     <button onClick={() => { setSelectedStudent(student); setPhotoPreview(student.photo || null); setShowForm(true); }} title="Editar Ficha" className="p-2.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition"><Edit2 className="w-4.5 h-4.5" /></button>
+                    <button onClick={() => setStudentToDelete(student)} title="Eliminar Alumno" className="p-2.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition"><Trash2 className="w-4.5 h-4.5" /></button>
                   </div>
                 </td>
               </tr>
@@ -380,8 +412,10 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
                       <td className="py-4 text-sm font-bold text-slate-600">{new Date(p.date).toLocaleDateString()}</td>
                       <td className="py-4 text-sm font-black text-slate-800 uppercase tracking-tighter">{p.description}</td>
                       <td className="py-4 text-sm font-black text-emerald-600">${p.amount.toLocaleString()}</td>
-                      <td className="py-4 text-right flex justify-end gap-2">
-                        <button onClick={() => setViewingReceipt(p)} className="p-2 text-slate-300 group-hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><Printer className="w-4 h-4" /></button>
+                      <td className="py-4 text-right flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setViewingReceipt(p)} title="Imprimir" className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition"><Printer className="w-4 h-4" /></button>
+                        <button onClick={() => setEditingPayment(p)} title="Editar Pago" className="p-2 text-slate-300 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => setPaymentToDelete(p)} title="Eliminar Pago" className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 className="w-4 h-4" /></button>
                       </td>
                     </tr>
                   ))}
@@ -393,13 +427,64 @@ const StudentManager: React.FC<Props> = ({ students, setStudents, payments, setP
         </div>
       )}
 
+      {/* MODAL DE EDICIÓN DE PAGO */}
+      {editingPayment && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 no-print">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="p-6 border-b flex justify-between items-center bg-blue-600 text-white">
+                <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2"><Edit2 className="w-4 h-4" /> Editar Pago</h4>
+                <button onClick={() => setEditingPayment(null)} className="p-1 hover:bg-white/10 rounded-full transition"><X className="w-4 h-4" /></button>
+             </div>
+             <form onSubmit={handleUpdatePayment} className="p-8 space-y-6">
+                <div><label className="block text-[9px] font-black text-slate-400 uppercase mb-2 px-1">Monto del Pago ($)</label><input name="amount" type="number" defaultValue={editingPayment.amount} required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-lg font-black text-emerald-600 outline-none" /></div>
+                <div><label className="block text-[9px] font-black text-slate-400 uppercase mb-2 px-1">Descripción / Concepto</label><textarea name="description" defaultValue={editingPayment.description} required className="w-full px-5 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs font-bold outline-none h-24 resize-none"></textarea></div>
+                <button type="submit" className="w-full py-4 bg-blue-600 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-blue-200 hover:bg-blue-700 transition">Guardar Cambios</button>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ELIMINAR ALUMNO */}
+      {studentToDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 no-print backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2"><AlertCircle className="w-10 h-10" /></div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">¿Dar de baja alumno?</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">Esta acción eliminará definitivamente la ficha de <strong>{studentToDelete.fullName}</strong> del sistema. Sus registros de pago también podrían verse afectados.</p>
+                <div className="flex gap-3 pt-4">
+                   <button onClick={() => setStudentToDelete(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition">Cancelar</button>
+                   <button onClick={confirmDeleteStudent} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-200">Sí, Eliminar</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL DE ELIMINAR PAGO */}
+      {paymentToDelete && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 p-4 no-print backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+             <div className="p-8 text-center space-y-4">
+                <div className="w-16 h-16 bg-red-50 text-red-600 rounded-full flex items-center justify-center mx-auto mb-2"><Trash2 className="w-10 h-10" /></div>
+                <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter">¿Borrar registro de pago?</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">Estás a punto de eliminar el cobro de <strong>{paymentToDelete.description}</strong> por valor de <strong>${paymentToDelete.amount.toLocaleString()}</strong>.</p>
+                <div className="flex gap-3 pt-4">
+                   <button onClick={() => setPaymentToDelete(null)} className="flex-1 py-4 bg-slate-100 text-slate-500 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 transition">Cancelar</button>
+                   <button onClick={confirmDeletePayment} className="flex-1 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition shadow-lg shadow-red-200">Borrar Pago</button>
+                </div>
+             </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE RECIBO DE IMPRESIÓN */}
       {viewingReceipt && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/80 backdrop-blur-md p-4 no-print">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in zoom-in-95 duration-300">
              <div className="p-4 border-b flex justify-between items-center bg-slate-900 text-white">
                 <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2"><Printer className="w-4 h-4" /> Vista Previa de Recibo</h4>
-                <button onClick={() => setViewingReceipt(null)} className="p-1 hover:bg-white/10 rounded-full transition"><CloseIcon /></button>
+                <button onClick={() => setViewingReceipt(null)} className="p-1 hover:bg-white/10 rounded-full transition"><CloseIcon className="w-4 h-4" /></button>
              </div>
              <div className="p-10 flex-1 overflow-y-auto" id="printable-ticket">
                 <div className="border-2 border-slate-900 p-8 space-y-6 relative">
